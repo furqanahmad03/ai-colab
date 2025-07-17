@@ -13,3 +13,73 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  email       String       @unique
+  name        String?
+  image       String?
+  role        Role         @default(USER)
+  challenges  Challenge[]  @relation("UserChallenges")
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+}
+
+model Challenge {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  difficulty  Difficulty
+  tags        String[]
+  createdById String?    @db.ObjectId
+  createdBy   User?      @relation("UserChallenges", fields: [createdById], references: [id])
+  isDaily     Boolean    @default(false)
+
+  submissions Submission[]
+  daily       DailyChallenge?
+
+  createdAt DateTime @default(now())
+}
+
+model DailyChallenge {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  challengeId String   @unique @db.ObjectId
+  date        DateTime @unique
+
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+}
+
+model Submission {
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String @db.ObjectId
+  challengeId String @db.ObjectId
+  code        String
+  language    String
+  result      Result @default(PENDING)
+  score       Int?
+  runtime     Float?
+  memory      Float?
+
+  createdAt DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum Result {
+  PENDING
+  PASS
+  FAIL
+  ERROR
+}
