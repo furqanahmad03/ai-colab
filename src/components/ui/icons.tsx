@@ -1,0 +1,38 @@
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Github,
+  Chrome,
+  Loader2,
+  Check,
+  X,
+  ArrowRight,
+  Sparkles,
+  Shield,
+  Zap,
+  Search,
+  
+  Bell,
+  ChevronDown,
+} from "lucide-react";
+
+export const Icons = {
+  mail: Mail,
+  lock: Lock,
+  eye: Eye,
+  eyeOff: EyeOff,
+  github: Github,
+  google: Chrome,
+  spinner: Loader2,
+  check: Check,
+  x: X,
+  arrowRight: ArrowRight,
+  sparkles: Sparkles,
+  shield: Shield,
+  zap: Zap,
+  search: Search,
+  bell: Bell,
+  chevronDown: ChevronDown,
+};
