@@ -10,6 +10,9 @@ import { Footer } from "../components/Footer";
 
 export default function DashboardPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
+  const [numberOfProblems, setNumberOfProblems] = useState("1");
+  const [generatedChallenges, setGeneratedChallenges] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -100,13 +103,36 @@ export default function DashboardPage() {
     }
   };
 
-  const handleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Optionally, you can pass the selected difficulty as a query param
-    if (selectedDifficulty) {
-      router.push(`/problems?difficulty=${selectedDifficulty}`);
-    } else {
-      router.push("/problems");
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: session.user?.id,
+          numberOfChallenges: parseInt(numberOfProblems, 10),
+          difficultyLevel: selectedDifficulty || undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setGeneratedChallenges(data.generatedChallenges || []);
+        console.log(data.generatedChallenges);
+        router.push("/problems");
+      } else {
+        console.error("Failed to generate challenges:", data.error);
+      }
+    } catch (error) {
+      console.error("Error generating challenges:", error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -241,7 +267,7 @@ export default function DashboardPage() {
           </h2>
           <form
             onSubmit={handleGenerate}
-            className="flex flex-col sm:flex-row items-center gap-4 bg-gray-900 rounded-xl p-6 max-w-xl"
+            className="flex flex-col sm:flex-row items-center gap-4 bg-gray-900 rounded-xl p-6 max-w-3xl"
           >
             <label className="text-gray-300 font-medium mr-2" htmlFor="difficulty">
               Select Difficulty:
@@ -257,11 +283,34 @@ export default function DashboardPage() {
               <option value="MEDIUM">Medium</option>
               <option value="HARD">Hard</option>
             </select>
+            <label className="text-gray-300 font-medium mr-2" htmlFor="numberOfProblems">
+              Number of Problems:
+            </label>
+            <select
+              id="numberOfProblems"
+              value={numberOfProblems}
+              onChange={(e) => setNumberOfProblems(e.target.value)}
+              className="bg-gray-800 text-white rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+            >
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
             <Button
               type="submit"
-              className="ml-0 sm:ml-4 mt-2 sm:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-md transition"
+              disabled={isGenerating}
+              className="ml-0 sm:ml-4 mt-2 sm:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Generate
+              {isGenerating ? (
+                <>
+                  <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate"
+              )}
             </Button>
           </form>
         </div>

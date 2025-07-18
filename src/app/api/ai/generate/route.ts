@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { userId, numberOfChallenges, difficultyLevel } = body;
+    console.log(userId, numberOfChallenges, difficultyLevel);
 
     if (!userId || !numberOfChallenges) {
       return NextResponse.json(
