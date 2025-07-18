@@ -94,8 +94,11 @@ export default function DashboardPage() {
         // Take only the latest 5 problems
         setUserProblems((data.challenges || []).slice(0, 5));
         
-        // Calculate user stats
+        // Calculate user stats from created problems
         calculateUserStats(data.challenges || []);
+        
+        // Also fetch all user submissions for complete stats
+        fetchUserSubmissions();
       } else {
         console.error("Failed to fetch user problems:", data.error);
       }
@@ -106,21 +109,97 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchUserSubmissions = async () => {
+    if (!session?.user?.id) return;
+    
+    try {
+      const response = await fetch(`/api/submissions?userId=${session.user.id}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('All user submissions:', data.submissions);
+        calculateCompleteUserStats(data.submissions || []);
+      } else {
+        console.error("Failed to fetch user submissions:", data.error);
+      }
+    } catch (error) {
+      console.error("Error fetching user submissions:", error);
+    }
+  };
+
+  const calculateCompleteUserStats = (submissions: any[]) => {
+    let problemsSolved = 0;
+    let totalPoints = 0;
+    const solvedProblemIds = new Set();
+
+    console.log('Calculating complete stats from submissions:', submissions.length);
+
+    submissions.forEach(submission => {
+      console.log('Processing submission:', submission);
+      
+      // Sum up ALL submissions and their scores
+      if (submission.score !== null && submission.score !== undefined) {
+        totalPoints += submission.score;
+        console.log('Added points from submission:', submission.score, 'total now:', totalPoints);
+      }
+      
+      // Count problems solved (only PASS submissions count as solved)
+      if (submission.result === "PASS") {
+        if (!solvedProblemIds.has(submission.challengeId)) {
+          solvedProblemIds.add(submission.challengeId);
+          problemsSolved++;
+        }
+      }
+    });
+
+    console.log('Complete stats - problemsSolved:', problemsSolved, 'totalPoints:', totalPoints);
+
+    // Determine rank based on total points
+    let rank = "Bronze";
+    if (totalPoints >= 5000) {
+      rank = "Legend";
+    } else if (totalPoints >= 3000) {
+      rank = "Premium";
+    } else if (totalPoints >= 2000) {
+      rank = "Gold";
+    } else if (totalPoints >= 1000) {
+      rank = "Silver";
+    }
+
+    setUserStats({
+      problemsSolved,
+      totalPoints,
+      rank
+    });
+  };
+
   const calculateUserStats = (challenges: ApiChallenge[]) => {
     let problemsSolved = 0;
     let totalPoints = 0;
 
+    console.log('Calculating stats for challenges:', challenges.length);
+    console.log('Challenges data:', challenges);
+
     challenges.forEach(challenge => {
+      console.log('Processing challenge:', challenge.title);
+      console.log('Submissions:', challenge.submissions);
+      
       if (challenge.submissions.length > 0) {
         const latestSubmission = challenge.submissions[0];
+        console.log('Latest submission:', latestSubmission);
+        
         if (latestSubmission.result === "PASS") {
           problemsSolved++;
+          console.log('Problem solved, score:', latestSubmission.score);
           if (latestSubmission.score !== null) {
             totalPoints += latestSubmission.score;
+            console.log('Added points, total now:', totalPoints);
           }
         }
       }
     });
+
+    console.log('Final stats - problemsSolved:', problemsSolved, 'totalPoints:', totalPoints);
 
     // Determine rank based on total points
     let rank = "Bronze";
