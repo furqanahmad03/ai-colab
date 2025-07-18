@@ -69,7 +69,6 @@ const getCategoryTitle = (category: string) => {
 
 export default function Page() {
   const router = useRouter();
- 
 
   // Mock data - in real app, this would come from API/database
   const questions: Question[] = [
@@ -98,7 +97,6 @@ export default function Page() {
         "No additional characters or formatting",
       ],
     },
-   
   ];
 
   const question = questions.find((q) => q.id === "1");
@@ -151,8 +149,7 @@ export default function Page() {
                   </h1>
                   {question.isPremium && (
                     <Lock className="h-4 w-4 text-yellow-500" />
-         
-         )}
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -334,12 +331,14 @@ export default function Page() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code) => {
+              onSubmit={(code, language) => {
                 console.log("Submitting solution:", {
                   code,
-                  questions,
+                  language,
+                  questionId: question.id,
                 });
-                // Handle submission logic here
+                // Navigate to submission page after submitting
+                router.push("/submission");
               }}
             />
           </div>
