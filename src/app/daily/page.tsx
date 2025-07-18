@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,109 +17,105 @@ import {
   Play,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useParams } from "next/navigation";
 import { Footer } from "../components/Footer";
-
-type Difficulty = "EASY" | "MEDIUM" | "HARD";
-
-interface Question {
-  id: string;
-  title: string;
-  description: string;
-  difficulty: Difficulty;
-  tags: string[];
-  category: string;
-  isCompleted?: boolean;
-  isPremium?: boolean;
-  acceptanceRate?: number;
-  solvedCount?: number;
-  problemStatement?: string;
-  examples?: {
-    input: string;
-    output: string;
-    explanation?: string;
-  }[];
-  constraints?: string[];
-}
-
-const getDifficultyColor = (difficulty: Difficulty) => {
-  switch (difficulty) {
-    case "EASY":
-      return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
-    case "MEDIUM":
-      return "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
-    case "HARD":
-      return "text-rose-400 bg-rose-400/10 border-rose-400/20";
-    default:
-      return "text-gray-400 bg-gray-400/10 border-gray-400/20";
-  }
-};
-
-const getCategoryTitle = (category: string) => {
-  switch (category) {
-    case "pf":
-      return "Programming Fundamentals";
-    case "dsa":
-      return "Data Structures & Algorithms";
-    case "oop":
-      return "Object-Oriented Programming";
-    default:
-      return category;
-  }
-};
 
 export default function Page() {
   const router = useRouter();
+  const [challenge, setChallenge] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Mock data - in real app, this would come from API/database
-  const questions: Question[] = [
-    {
-      id: "1",
-      title: "Hello World",
-      description: "Write a program that prints 'Hello World'",
-      difficulty: "EASY",
-      tags: ["basics", "output"],
-      category: "pf",
-      isCompleted: true,
-      acceptanceRate: 95.2,
-      solvedCount: 1250000,
-      problemStatement:
-        "Create a program that outputs the text 'Hello World' to the console.",
-      examples: [
-        {
-          input: "No input required",
-          output: "Hello World",
-          explanation:
-            "The program should print exactly 'Hello World' to the console.",
-        },
-      ],
-      constraints: [
-        "Output must be exactly 'Hello World'",
-        "No additional characters or formatting",
-      ],
-    },
-  ];
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/daily-challanges")
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || "Failed to fetch daily challenge");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setChallenge(data.dailyChallenge);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
 
-  const question = questions.find((q) => q.id === "1");
-
-  if (!question) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <span className="text-white text-lg">Loading daily challenge...</span>
+      </div>
+    );
+  }
+
+  if (error || !challenge) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-4">
-            Problem Not Found
-          </h1>
-          <p className="text-muted-foreground mb-6">
-            The problem you're looking for doesn't exist.
-          </p>
-          <Button onClick={() => router.push("/problems")}>
+          <h1 className="text-2xl font-bold text-white mb-4">No Daily Challenge</h1>
+          <p className="text-gray-400 mb-6">{error || "No challenge available for today."}</p>
+          <Button onClick={() => router.push("/")}> 
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Problems
+            Back
           </Button>
         </div>
       </div>
     );
   }
+
+  // Map API data to your expected structure if needed
+  const question = {
+    id: challenge.id,
+    title: challenge.title,
+    description: challenge.description,
+    difficulty: challenge.difficulty || "EASY",
+    tags: challenge.tags || [],
+    category: challenge.category || "",
+    isCompleted: false,
+    isPremium: false,
+    acceptanceRate: challenge.acceptanceRate || 0,
+    solvedCount: challenge._count?.submissions || 0,
+    problemStatement: challenge.problemStatement || "",
+    examples: challenge.examples || [
+      {
+        input: "No input required",
+        output: "",
+        explanation: "",
+      },
+    ],
+    constraints: challenge.constraints || [],
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "EASY":
+        return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
+      case "MEDIUM":
+        return "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
+      case "HARD":
+        return "text-rose-400 bg-rose-400/10 border-rose-400/20";
+      default:
+        return "text-gray-400 bg-gray-400/10 border-gray-400/20";
+    }
+  };
+
+  const getCategoryTitle = (category: string) => {
+    switch (category) {
+      case "pf":
+        return "Programming Fundamentals";
+      case "dsa":
+        return "Data Structures & Algorithms";
+      case "oop":
+        return "Object-Oriented Programming";
+      default:
+        return category;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -199,7 +196,7 @@ export default function Page() {
                   <div>
                     <h3 className="font-semibold mb-3">Examples</h3>
                     <div className="space-y-4">
-                      {question.examples.map((example, index) => (
+                      {question.examples.map((example: any, index: number) => (
                         <div key={index} className="bg-muted/50 p-4 rounded-lg">
                           <div className="space-y-2">
                             <div>
@@ -217,7 +214,7 @@ export default function Page() {
                             {example.explanation && (
                               <div>
                                 <span className="font-medium">
-                                  Explanation:{" "}
+                                  Explanation: {" "}
                                 </span>
                                 <span className="text-sm text-muted-foreground">
                                   {example.explanation}
@@ -235,7 +232,7 @@ export default function Page() {
                   <div>
                     <h3 className="font-semibold mb-2">Constraints</h3>
                     <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      {question.constraints.map((constraint, index) => (
+                      {question.constraints.map((constraint: string, index: number) => (
                         <li key={index}>{constraint}</li>
                       ))}
                     </ul>
@@ -293,7 +290,7 @@ export default function Page() {
                 <div>
                   <span className="text-sm font-medium mb-2 block">Tags:</span>
                   <div className="flex flex-wrap gap-2">
-                    {question.tags.map((tag) => (
+                    {question.tags.map((tag: string) => (
                       <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
@@ -325,7 +322,7 @@ export default function Page() {
             <CodeEditor
               problemId={question.id}
               testCases={
-                question.examples?.map((example) => ({
+                question.examples?.map((example: any, index: number) => ({
                   input: example.input,
                   expectedOutput: example.output,
                   description: example.explanation,
