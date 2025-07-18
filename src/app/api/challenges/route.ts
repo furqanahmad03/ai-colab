@@ -27,6 +27,15 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        submissions: {
+          where: {
+            userId: userId,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1, // Get the latest submission for status
+        },
         _count: {
           select: {
             submissions: true,
