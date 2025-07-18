@@ -3,6 +3,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/ui/icons";
+import Link from "next/link";
 
 export function AuthenticatedNavbar() {
   const { data: session } = useSession();
@@ -22,16 +23,18 @@ export function AuthenticatedNavbar() {
     <nav className="bg-gray-900/50 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-                <Icons.zap className="h-5 w-5 text-white" />
+          <Link href="/dashboard">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+                  <Icons.zap className="h-5 w-5 text-white" />
+                </div>
+              </div>
+              <div className="ml-4">
+                <h1 className="text-white font-semibold text-lg">AI Code Lab</h1>
               </div>
             </div>
-            <div className="ml-4">
-              <h1 className="text-white font-semibold text-lg">AI Code Lab</h1>
-            </div>
-          </div>
+          </Link>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
               <div className="h-8 w-8 bg-emerald-600 rounded-full flex items-center justify-center">

@@ -26,6 +26,7 @@ import { useParams } from "next/navigation";
 import { Footer } from "../../components/Footer";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { AuthenticatedNavbar } from "@/app/components/AuthenticatedNavbar";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
@@ -442,6 +443,7 @@ export default function ProblemPage() {
 
   return (
     <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black">
+      <AuthenticatedNavbar />
       {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

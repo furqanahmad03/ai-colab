@@ -24,6 +24,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { AuthenticatedNavbar } from "../components/AuthenticatedNavbar";
 
 type SubmissionStatus = "PASS" | "FAIL" | "PENDING" | "ERROR";
 
@@ -270,6 +271,7 @@ export default function SubmissionPage() {
 
   return (
     <>
+      <AuthenticatedNavbar />
       <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-4xl space-y-8">
           {/* Header */}

@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Circle, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { Footer } from "../components/Footer";
+import { AuthenticatedNavbar } from "../components/AuthenticatedNavbar";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
 type Result = "PENDING" | "PASS" | "FAIL" | "ERROR";
@@ -224,6 +225,7 @@ export default function ProblemsPage() {
 
   return (
     <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black">
+      <AuthenticatedNavbar />
       {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
