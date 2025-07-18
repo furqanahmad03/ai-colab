@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Footer } from "../components/Footer";
 import {
   Card,
   CardHeader,
@@ -148,6 +149,7 @@ export default function SubmissionPage() {
   };
 
   return (
+    <>
     <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-4xl space-y-8">
         {/* Header */}
@@ -325,5 +327,6 @@ export default function SubmissionPage() {
         </Card>
       </div>
     </div>
-  );
+    <Footer />
+  </>);
 }
