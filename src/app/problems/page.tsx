@@ -47,7 +47,7 @@ const getCategoryTitle = (category: string) => {
     default:
       return category;
   }
-};
+}
 
 const categories = ["pf", "dsa", "oop"];
 
