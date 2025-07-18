@@ -683,15 +683,61 @@ export default function ProblemPage() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code) => {
+              onSubmit={async (code, language = "javascript") => {
                 console.log("Submitting solution:", {
                   code,
                   problemId,
                   title: problem.title,
                   difficulty: problem.difficulty,
                 });
-                // Navigate to submission page after submitting
-                router.push("/submission");
+
+                try {
+                  // Use a real user ID from the database for testing
+                  // In production, this should come from the authenticated user session
+                  const realUserId = "6879f36cfbc791831eab81bb"; // Furqan Ahmad's ID from database
+
+                  console.log("📤 Making API call with data:", {
+                    userId: realUserId,
+                    language,
+                    codeLength: code.length,
+                  });
+
+                  // Make API call to submit the solution
+                  const response = await fetch(
+                    `/api/submissions/${problemId}`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        userId: realUserId,
+                        code,
+                        language,
+                      }),
+                    }
+                  );
+
+                  console.log("📥 Response status:", response.status);
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("❌ API Error:", errorData);
+                    throw new Error(
+                      errorData.error || "Failed to submit solution"
+                    );
+                  }
+
+                  const result = await response.json();
+                  console.log("✅ Submission result:", result);
+
+                  // Navigate to submission page with the submission ID
+                  router.push(`/submission?id=${result.submission.id}`);
+                } catch (error) {
+                  console.error("💥 Error submitting solution:", error);
+                  // TODO: Show error toast/notification to user
+                  alert(`Error submitting solution: ${error.message}`);
+                }
               }}
             />
           </div>
