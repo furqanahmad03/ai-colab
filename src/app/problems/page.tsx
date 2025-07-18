@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Trophy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Circle, Clock, XCircle, AlertTriangle, Trophy } from "lucide-react";
+import { CheckCircle2, Circle, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { Footer } from "../components/Footer";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
@@ -227,13 +229,23 @@ export default function ProblemsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground tracking-tight">
-                  Problems
-                </h1>
-                {error && (
-                  <p className="text-red-400 text-sm mt-2">{error}</p>
-                )}
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/")}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground tracking-tight">
+                    Problems
+                  </h1>
+                  {error && (
+                    <p className="text-red-400 text-sm mt-2">{error}</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Trophy className="h-6 w-6 text-yellow-500" />

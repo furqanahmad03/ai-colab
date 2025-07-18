@@ -46,6 +46,13 @@ export default function DashboardPage() {
   const [userProblems, setUserProblems] = useState<ApiChallenge[]>([]);
   const [isLoadingProblems, setIsLoadingProblems] = useState(false);
   const [hasFetchedProblems, setHasFetchedProblems] = useState(false);
+  const [userStats, setUserStats] = useState({
+    problemsSolved: 0,
+    totalPoints: 0,
+    rank: "Bronze"
+  });
+  const [todayChallenge, setTodayChallenge] = useState<ApiChallenge | null>(null);
+  const [isLoadingTodayChallenge, setIsLoadingTodayChallenge] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -60,6 +67,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (session?.user?.id && !hasFetchedProblems && !isLoadingProblems) {
       fetchUserProblems();
+      fetchTodayChallenge();
     }
   }, [session?.user?.id, hasFetchedProblems, isLoadingProblems]);
 
@@ -68,6 +76,7 @@ export default function DashboardPage() {
     if (session?.user?.id) {
       setHasFetchedProblems(false);
       setUserProblems([]);
+      setTodayChallenge(null);
     }
   }, [session?.user?.id]);
 
@@ -84,6 +93,9 @@ export default function DashboardPage() {
       if (response.ok) {
         // Take only the latest 5 problems
         setUserProblems((data.challenges || []).slice(0, 5));
+        
+        // Calculate user stats
+        calculateUserStats(data.challenges || []);
       } else {
         console.error("Failed to fetch user problems:", data.error);
       }
@@ -91,6 +103,62 @@ export default function DashboardPage() {
       console.error("Error fetching user problems:", error);
     } finally {
       setIsLoadingProblems(false);
+    }
+  };
+
+  const calculateUserStats = (challenges: ApiChallenge[]) => {
+    let problemsSolved = 0;
+    let totalPoints = 0;
+
+    challenges.forEach(challenge => {
+      if (challenge.submissions.length > 0) {
+        const latestSubmission = challenge.submissions[0];
+        if (latestSubmission.result === "PASS") {
+          problemsSolved++;
+          if (latestSubmission.score !== null) {
+            totalPoints += latestSubmission.score;
+          }
+        }
+      }
+    });
+
+    // Determine rank based on total points
+    let rank = "Bronze";
+    if (totalPoints >= 5000) {
+      rank = "Legend";
+    } else if (totalPoints >= 3000) {
+      rank = "Premium";
+    } else if (totalPoints >= 2000) {
+      rank = "Gold";
+    } else if (totalPoints >= 1000) {
+      rank = "Silver";
+    }
+
+    setUserStats({
+      problemsSolved,
+      totalPoints,
+      rank
+    });
+  };
+
+  const fetchTodayChallenge = async () => {
+    if (!session?.user?.id || isLoadingTodayChallenge) return;
+    
+    try {
+      setIsLoadingTodayChallenge(true);
+      
+      const response = await fetch('/api/daily-challanges');
+      const data = await response.json();
+
+      if (response.ok && data.dailyChallenge) {
+        setTodayChallenge(data.dailyChallenge);
+      } else {
+        console.error("Failed to fetch today's challenge:", data.error);
+      }
+    } catch (error) {
+      console.error("Error fetching today's challenge:", error);
+    } finally {
+      setIsLoadingTodayChallenge(false);
     }
   };
 
@@ -112,10 +180,6 @@ export default function DashboardPage() {
     name: session.user?.name || session.user?.email || "User",
     username: session.user?.email || "user",
     avatar: session.user?.name ? session.user.name.substring(0, 2).toUpperCase() : "U",
-    points: 2450,
-    rank: "Gold",
-    solved: 145,
-    streak: 7,
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -311,7 +375,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
             <div className="flex items-center justify-between">
               <div>
@@ -319,7 +383,7 @@ export default function DashboardPage() {
                   Problems Solved
                 </p>
                 <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {user.solved}
+                  {userStats.problemsSolved}
                 </p>
               </div>
               <div className="text-emerald-400 text-3xl group-hover:scale-110 transition-transform duration-200">
@@ -331,25 +395,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                  Current Streak
-                </p>
-                <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {user.streak}
-                </p>
-              </div>
-              <div className="text-orange-400 text-3xl group-hover:scale-110 transition-transform duration-200">
-                🔥
-              </div>
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
                   Points
                 </p>
                 <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {user.points}
+                  {userStats.totalPoints}
                 </p>
               </div>
               <div className="text-emerald-400 text-3xl group-hover:scale-110 transition-transform duration-200">
@@ -364,7 +413,7 @@ export default function DashboardPage() {
                   Rank
                 </p>
                 <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {user.rank}
+                  {userStats.rank}
                 </p>
               </div>
               <div className="text-yellow-400 text-3xl group-hover:scale-110 transition-transform duration-200">
@@ -428,6 +477,74 @@ export default function DashboardPage() {
             </Button>
           </form>
         </div>
+
+        {/* Today's Challenge */}
+        {todayChallenge && (
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">
+              Today's Challenge
+            </h2>
+            <div className="bg-gray-900 rounded-xl shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
+              <div className="p-6 border-b border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 bg-emerald-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg font-bold">🎯</span>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-white">{todayChallenge.title}</h3>
+                      <p className="text-gray-400 text-sm">Daily Challenge</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-white">{todayChallenge._count?.submissions || 0}</div>
+                      <div className="text-gray-400 text-sm">Submissions</div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`border font-medium ${getDifficultyColor(todayChallenge.difficulty)}`}
+                    >
+                      {todayChallenge.difficulty}
+                    </Badge>
+                    <Button
+                      onClick={() => router.push(`/problems/${todayChallenge.id}`)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      Solve Now
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6">
+                <p className="text-gray-300 line-clamp-3">
+                  {todayChallenge.description.length > 200 
+                    ? todayChallenge.description.substring(0, 200) + '...' 
+                    : todayChallenge.description}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {todayChallenge.tags.slice(0, 3).map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="border-gray-700 text-gray-300 text-xs"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                  {todayChallenge.tags.length > 3 && (
+                    <Badge
+                      variant="outline"
+                      className="border-gray-700 text-gray-300 text-xs"
+                    >
+                      +{todayChallenge.tags.length - 3}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Problems List */}
         <div className="bg-gray-900 rounded-xl shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
