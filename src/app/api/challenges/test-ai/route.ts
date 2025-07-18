@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 // Real AI response from the user
 const realAIResponse = `
@@ -74,27 +74,50 @@ Final reassembled_message: ["Hello,", " beautiful", "world!", " are you?", "How"
 
 // Mock messy AI content (simulating corrupted/fragmented responses)
 const mockMessyAIContent = `
-beautiful")`, `Packet(sequence_number=3, payload=" are you?")` `]` **Expected Output:** `["Hello,", " beautiful", "world!", " are you?", "How"]` **Explanation of Example Trace:** 1. Initial: \`next_expected_sequence_number = 0\`, \`buffered_packets = {}\`, \`reassembled_message = []\` 2. Process \`Packet(seq=2, payload="world!")\`: \`seq=2\` > \`next_expected_seq=0\`. Store: \`buffered_packets = {2: "world!"}\`. 3. Process \`Packet(seq=0, payload="Hello,")\`: \`seq=0\` == \`next_expected_seq=0\`. * Add "Hello," to \`reassembled_message\`. \`reassembled_message = ["Hello,"]\`. * Increment \`next_expected_sequence_number\` to 1. * Check for \`seq=1\`: Not in \`buffered_packets\`. Stop emitting contiguous block. 4. Process \`Packet(seq=4, payload="How")\`: \`seq=4\` > \`next_expected_seq=1\`. Store: \`buffered_packets = {2: "world!", 4: "How"}\`. 5. Process \`Packet(seq=1, payload=" beautiful")\`: \`seq=1\` == \`next_expected_seq=1\`. * Add " beautiful" to \`reassembled_message\`. \`reassembled_message = ["Hello,", " beautiful"]\`. * Increment \`next_expected_sequence_number\` to 2. * Check for \`seq=2\`: Found "world!" in \`buffered_packets\`. * Add "world!" to \`reassembled_message\`. \`reassembled_message = ["Hello,", " beautiful", "world!"]\`. * Remove \`seq=2\` from \`buffered_packets\`. * Increment \`next_expected_sequence_number\` to 3. * Check for \`seq=3\`: Not in \`buffered_packets\`. Stop
+...fragmented content...
+Packet(sequence_number=3, payload=" are you?")
+]
+
+**Expected Output:** 
+["Hello,", " beautiful", "world!", " are you?", "How"]
+
+**Explanation of Example Trace:** 
+1. Initial: next_expected_sequence_number = 0, buffered_packets = {}, reassembled_message = []
+2. Process Packet(seq=2, payload="world!"): seq=2 > next_expected_seq=0. Store: buffered_packets = {2: "world!"}.
+3. Process Packet(seq=0, payload="Hello,"): seq=0 == next_expected_seq=0.
+   * Add "Hello," to reassembled_message. reassembled_message = ["Hello,"].
+   * Increment next_expected_sequence_number to 1.
+   * Check for seq=1: Not in buffered_packets. Stop emitting contiguous block.
+4. Process Packet(seq=4, payload="How"): seq=4 > next_expected_seq=1. Store: buffered_packets = {2: "world!", 4: "How"}.
+5. Process Packet(seq=1, payload=" beautiful"): seq=1 == next_expected_seq=1.
+   * Add " beautiful" to reassembled_message. reassembled_message = ["Hello,", " beautiful"].
+   * Increment next_expected_sequence_number to 2.
+   * Check for seq=2: Found "world!" in buffered_packets.
+   * Add "world!" to reassembled_message. reassembled_message = ["Hello,", " beautiful", "world!"].
+   * Remove seq=2 from buffered_packets.
+   * Increment next_expected_sequence_number to 3.
+   * Check for seq=3: Not in buffered_packets. Stop emitting contiguous block.
+...content appears to be cut off or corrupted...
 `;
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'real';
+    const type = searchParams.get("type") || "real";
 
     // Choose which type of AI content to return
     let aiContent: string;
     let challengeTitle: string;
-    
+
     switch (type) {
-      case 'messy':
+      case "messy":
         aiContent = mockMessyAIContent;
-        challengeTitle = 'Messy Packet Reassembly (Fragmented AI Response)';
+        challengeTitle = "Messy Packet Reassembly (Fragmented AI Response)";
         break;
-      case 'real':
+      case "real":
       default:
         aiContent = realAIResponse;
-        challengeTitle = 'Packet Reassembly System';
+        challengeTitle = "Packet Reassembly System";
         break;
     }
 
@@ -102,23 +125,24 @@ export async function GET(request: NextRequest) {
     const mockChallenge = {
       id: `test-ai-challenge-${type}`,
       title: challengeTitle,
-      description: 'Build a system to reassemble messages from out-of-order network packets.',
-      difficulty: 'MEDIUM',
-      tags: ['algorithm', 'data-structures', 'network', 'packet', 'sorting'],
-      createdById: 'ai-system',
+      description:
+        "Build a system to reassemble messages from out-of-order network packets.",
+      difficulty: "MEDIUM",
+      tags: ["algorithm", "data-structures", "network", "packet", "sorting"],
+      createdById: "ai-system",
       createdBy: {
-        name: 'AI System',
-        email: 'ai@codelab.com'
+        name: "AI System",
+        email: "ai@codelab.com",
       },
       isDaily: false,
       submissions: [
-        { id: 'sub1', result: 'PASS', userId: 'user1' },
-        { id: 'sub2', result: 'FAIL', userId: 'user2' },
-        { id: 'sub3', result: 'PASS', userId: 'user3' },
-        { id: 'sub4', result: 'PASS', userId: 'user4' },
+        { id: "sub1", result: "PASS", userId: "user1" },
+        { id: "sub2", result: "FAIL", userId: "user2" },
+        { id: "sub3", result: "PASS", userId: "user3" },
+        { id: "sub4", result: "PASS", userId: "user4" },
       ],
       _count: {
-        submissions: 4
+        submissions: 4,
       },
       createdAt: new Date().toISOString(),
       // AI-generated content fields - this is where the magic happens
@@ -127,19 +151,21 @@ export async function GET(request: NextRequest) {
       // Pre-populated examples and constraints for fallback
       examples: [
         {
-          input: 'packets = [Packet(2, "world!"), Packet(0, "Hello,"), Packet(4, "How"), Packet(1, " beautiful"), Packet(3, " are you?")]',
+          input:
+            'packets = [Packet(2, "world!"), Packet(0, "Hello,"), Packet(4, "How"), Packet(1, " beautiful"), Packet(3, " are you?")]',
           output: '["Hello,", " beautiful", "world!", " are you?", "How"]',
-          explanation: 'Packets are processed in arrival order but emitted in sequence number order. The system buffers out-of-order packets and emits them when their turn comes.'
-        }
+          explanation:
+            "Packets are processed in arrival order but emitted in sequence number order. The system buffers out-of-order packets and emits them when their turn comes.",
+        },
       ],
       constraints: [
-        '0 <= sequence_number <= 10^5',
-        '1 <= len(payload) <= 100',
-        '1 <= len(packets) <= 10^4',
-        'All sequence_numbers are unique within the input list',
-        'Time complexity: O(n log n) where n is the number of packets',
-        'Space complexity: O(n) for buffering out-of-order packets'
-      ]
+        "0 <= sequence_number <= 10^5",
+        "1 <= len(payload) <= 100",
+        "1 <= len(packets) <= 10^4",
+        "All sequence_numbers are unique within the input list",
+        "Time complexity: O(n log n) where n is the number of packets",
+        "Space complexity: O(n) for buffering out-of-order packets",
+      ],
     };
 
     return NextResponse.json({
@@ -148,22 +174,22 @@ export async function GET(request: NextRequest) {
         isAIGenerated: true,
         contentType: type,
         processingRequired: true,
-        hasPackets: aiContent.includes('Packet('),
+        hasPackets: aiContent.includes("Packet("),
         aiResponseLength: aiContent.length,
         timestamp: new Date().toISOString(),
         processingInstructions: {
-          step1: 'Check for packet format in aiGeneratedContent',
-          step2: 'Parse and reassemble if packets found',
-          step3: 'Extract structured content (description, examples, constraints)',
-          step4: 'Display in problem page with enhanced formatting'
-        }
-      }
+          step1: "Check for packet format in aiGeneratedContent",
+          step2: "Parse and reassemble if packets found",
+          step3:
+            "Extract structured content (description, examples, constraints)",
+          step4: "Display in problem page with enhanced formatting",
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Error in test AI endpoint:', error);
+    console.error("Error in test AI endpoint:", error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -176,7 +202,7 @@ export async function POST(request: NextRequest) {
 
     if (!content) {
       return NextResponse.json(
-        { error: 'Content is required' },
+        { error: "Content is required" },
         { status: 400 }
       );
     }
@@ -184,10 +210,11 @@ export async function POST(request: NextRequest) {
     // Simulate processing the AI content
     const processedChallenge = {
       id: `ai-processed-${Date.now()}`,
-      title: title || 'AI Generated Challenge',
-      description: 'This challenge was generated by AI and processed by our packet reassembly system.',
-      difficulty: 'MEDIUM',
-      tags: ['ai-generated', 'algorithm', 'packet-reassembly'],
+      title: title || "AI Generated Challenge",
+      description:
+        "This challenge was generated by AI and processed by our packet reassembly system.",
+      difficulty: "MEDIUM",
+      tags: ["ai-generated", "algorithm", "packet-reassembly"],
       createdById: null,
       createdBy: null,
       isDaily: false,
@@ -197,28 +224,27 @@ export async function POST(request: NextRequest) {
       aiGeneratedContent: content,
       rawContent: content,
       metadata: {
-        processingType: type || 'unknown',
+        processingType: type || "unknown",
         contentLength: content.length,
-        processedAt: new Date().toISOString()
-      }
+        processedAt: new Date().toISOString(),
+      },
     };
 
     return NextResponse.json({
       challenge: processedChallenge,
-      message: 'AI content processed successfully',
+      message: "AI content processed successfully",
       metadata: {
         isAIGenerated: true,
         processingRequired: true,
-        contentType: type || 'custom',
-        timestamp: new Date().toISOString()
-      }
+        contentType: type || "custom",
+        timestamp: new Date().toISOString(),
+      },
     });
-
   } catch (error) {
-    console.error('Error processing AI content:', error);
+    console.error("Error processing AI content:", error);
     return NextResponse.json(
-      { error: 'Failed to process AI content' },
+      { error: "Failed to process AI content" },
       { status: 500 }
     );
   }
-} 
+}
