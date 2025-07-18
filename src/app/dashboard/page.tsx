@@ -1,20 +1,43 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icons } from "@/components/ui/icons";
-import { useRouter } from "next/navigation";
 import { Footer } from "../components/Footer";
 
 export default function DashboardPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
+  const { data: session, status } = useSession();
   const router = useRouter();
 
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  // Show loading while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!session) {
+    return null;
+  }
+
   const user = {
-    name: "Saad Bin Ather",
-    username: "saad_ather",
-    avatar: "SA",
+    name: session.user?.name || session.user?.email || "User",
+    username: session.user?.email || "user",
+    avatar: session.user?.name ? session.user.name.substring(0, 2).toUpperCase() : "U",
     points: 2450,
     rank: "Gold",
     solved: 145,
@@ -87,8 +110,49 @@ export default function DashboardPage() {
     }
   };
 
+  const handleLogout = () => {
+    signOut({ callbackUrl: "/login" });
+  };
+
   return (
     <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black">
+      {/* Navbar */}
+      <nav className="bg-gray-900/50 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+                  <Icons.zap className="h-5 w-5 text-white" />
+                </div>
+              </div>
+              <div className="ml-4">
+                <h1 className="text-white font-semibold text-lg">AI Code Lab</h1>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-8 w-8 bg-emerald-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">{user.avatar}</span>
+                </div>
+                <div className="hidden md:block">
+                  <p className="text-white text-sm font-medium">{user.name}</p>
+                  <p className="text-gray-400 text-xs">{session.user?.email}</p>
+                </div>
+              </div>
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+              >
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
@@ -96,7 +160,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">
-                Learn Programming Skills
+                Welcome back, {user.name}!
               </h1>
               <p className="text-gray-300 text-lg">
                 Build your programming foundation with practice problems and

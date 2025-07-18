@@ -13,11 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function SignupPage() {
-  const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -27,17 +29,50 @@ export default function SignupPage() {
     setIsLoading(true);
     setError("");
 
-    if (!username || !email || !password) {
-      setError("Please fill in all fields");
+    if (!email || !password) {
+      setError("Please fill in all required fields");
       setIsLoading(false);
       return;
     }
 
-    // Simulate signup
-    setTimeout(() => {
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
       setIsLoading(false);
-      router.push("/dashboard");
-    }, 800);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name || null,
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to create account");
+      } else {
+        // Redirect to login page after successful signup
+        router.push("/login?message=Account created successfully");
+      }
+    } catch (error) {
+      setError("An error occurred during signup");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -65,17 +100,16 @@ export default function SignupPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-gray-300 font-medium">
-                Username
+              <Label htmlFor="name" className="text-gray-300 font-medium">
+                Full Name
               </Label>
               <Input
-                id="username"
+                id="name"
                 type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your full name (optional)"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
-                required
               />
             </div>
 
@@ -109,6 +143,21 @@ export default function SignupPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-gray-300 font-medium">
+                Confirm Password
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-gray-600 focus:ring-1 focus:ring-gray-600"
+                required
+              />
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-gray-800 hover:bg-gray-700 text-white border border-gray-700 hover:border-gray-600 transition-colors font-medium"
@@ -117,13 +166,25 @@ export default function SignupPage() {
               {isLoading ? (
                 <>
                   <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                  Signing up...
+                  Creating account...
                 </>
               ) : (
                 "Sign Up"
               )}
             </Button>
           </form>
+
+          <div className="text-center pt-4">
+              <p className="text-gray-400 text-sm">
+                Already have an account?{" "}
+                <Link
+                  href="/login"
+                  className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                >
+                  Login here
+                </Link>
+              </p>
+          </div>
         </CardContent>
       </Card>
     </div>

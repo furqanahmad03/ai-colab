@@ -1,21 +1,26 @@
-import { HeroSection  } from "./components/HeroSection";
-import { Navbar } from "./components/Navbar";
-import { CTA } from "./components/CTA";
-import { HowItWorks } from "./components/HowItWorks";
-import {Footer} from "./components/Footer"
-import React from 'react'
+"use client";
 
-export default function HomePage()
-{
- return (
-  <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black">
-    <main>
-      <Navbar/>
-      <HeroSection/>
-      <HowItWorks/>
-      <CTA/>
-      <Footer/>
-    </main>
-  </div>
- );
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+export default function HomePage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "loading") return;
+    
+    if (session) {
+      router.push("/dashboard");
+    } else {
+      router.push("/login");
+    }
+  }, [session, status, router]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-xl">Loading...</div>
+    </div>
+  );
 }

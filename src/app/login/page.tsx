@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,11 +34,24 @@ export default function LoginPage() {
       return;
     }
 
-    // Simulate authentication
-    setTimeout(() => {
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Invalid email or password");
+      } else {
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch (error) {
+      setError("An error occurred during login");
+    } finally {
       setIsLoading(false);
-      router.push("/dashboard");
-    }, 800);
+    }
   };
 
   return (
@@ -107,6 +122,18 @@ export default function LoginPage() {
                 "Sign In"
               )}
             </Button>
+
+            <div className="text-center pt-4">
+              <p className="text-gray-400 text-sm">
+                Don't have an account?{" "}
+                <Link
+                  href="/signup"
+                  className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                >
+                  Sign up here
+                </Link>
+              </p>
+            </div>
           </form>
         </CardContent>
       </Card>
