@@ -65,7 +65,7 @@ body {
   background: hsl(var(--background));
 }
 
-/* Line clamp utilities */
+
 .line-clamp-1 {
   display: -webkit-box;
   -webkit-line-clamp: 1;

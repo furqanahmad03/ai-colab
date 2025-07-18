@@ -331,10 +331,9 @@ export default function Page() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code, language) => {
+              onSubmit={(code) => {
                 console.log("Submitting solution:", {
                   code,
-                  language,
                   questionId: question.id,
                 });
                 // Navigate to submission page after submitting

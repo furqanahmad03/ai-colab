@@ -389,10 +389,9 @@ export default function ProblemPage() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code, language) => {
+              onSubmit={(code) => {
                 console.log("Submitting solution:", {
                   code,
-                  language,
                   problemId,
                 });
                 // Navigate to submission page after submitting
