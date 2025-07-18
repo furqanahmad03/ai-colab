@@ -389,12 +389,14 @@ export default function ProblemPage() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code) => {
+              onSubmit={(code, language) => {
                 console.log("Submitting solution:", {
                   code,
+                  language,
                   problemId,
                 });
-                // Handle submission logic here
+                // Navigate to submission page after submitting
+                router.push("/submission");
               }}
             />
           </div>
