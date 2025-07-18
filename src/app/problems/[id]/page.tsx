@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
 import { Footer } from "../../components/Footer";
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
@@ -340,6 +341,7 @@ export default function ProblemPage() {
   const router = useRouter();
   const params = useParams();
   const problemId = params.id as string;
+  const { data: session } = useSession();
 
   const [problem, setProblem] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
@@ -692,12 +694,14 @@ export default function ProblemPage() {
                 });
 
                 try {
-                  // Use a real user ID from the database for testing
-                  // In production, this should come from the authenticated user session
-                  const realUserId = "6879f36cfbc791831eab81bb"; // Furqan Ahmad's ID from database
+                  const userId = session?.user?.id;
+
+                  if (!userId) {
+                    throw new Error("User not authenticated");
+                  }
 
                   console.log("📤 Making API call with data:", {
-                    userId: realUserId,
+                    userId,
                     language,
                     codeLength: code.length,
                   });
@@ -711,7 +715,7 @@ export default function ProblemPage() {
                         "Content-Type": "application/json",
                       },
                       body: JSON.stringify({
-                        userId: realUserId,
+                        userId,
                         code,
                         language,
                       }),
@@ -736,7 +740,13 @@ export default function ProblemPage() {
                 } catch (error) {
                   console.error("💥 Error submitting solution:", error);
                   // TODO: Show error toast/notification to user
-                  alert(`Error submitting solution: ${error.message}`);
+                  alert(
+                    `Error submitting solution: ${
+                      error instanceof Error
+                        ? error.message
+                        : "Unknown error occurred"
+                    }`
+                  );
                 }
               }}
             />
