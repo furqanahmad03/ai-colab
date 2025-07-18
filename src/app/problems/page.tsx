@@ -1,11 +1,13 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Circle, Lock, Trophy } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Footer } from "../components/Footer";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
@@ -21,6 +23,24 @@ interface Question {
   isPremium?: boolean;
   acceptanceRate?: number;
   solvedCount?: number;
+}
+
+interface ApiChallenge {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  tags: string[];
+  createdById: string;
+  isDaily: boolean;
+  createdAt: string;
+  createdBy?: {
+    name: string | null;
+    email: string;
+  };
+  _count?: {
+    submissions: number;
+  };
 }
 
 const getDifficultyTextColor = (difficulty: Difficulty) => {
@@ -44,15 +64,68 @@ const getCategoryTitle = (category: string) => {
       return "Data Structures & Algorithms";
     case "oop":
       return "Object-Oriented Programming";
+    case "other":
+      return "Other Challenges";
     default:
       return category;
   }
 };
 
-const categories = ["pf", "dsa", "oop"];
+const categories = ["pf", "oop", "dsa"];
 
 export default function ProblemsPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const [challenges, setChallenges] = useState<ApiChallenge[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
+  // Fetch challenges when session is available
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchChallenges();
+    }
+  }, [session]);
+
+  const fetchChallenges = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`/api/challenges?userId=${session?.user?.id}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setChallenges(data.challenges || []);
+      } else {
+        setError(data.error || "Failed to fetch challenges");
+      }
+    } catch (error) {
+      console.error("Error fetching challenges:", error);
+      setError("Failed to fetch challenges");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Show loading while checking authentication
+  if (status === "loading" || isLoading) {
+    return (
+      <div className="min-h-screen w-full bg-black bg-gradient-to-b from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!session) {
+    return null;
+  }
 
   // Enhanced question objects with LeetCode-like properties
   const questions: Question[] = [
@@ -191,10 +264,48 @@ export default function ProblemsPage() {
     },
   ];
 
+  // Use API challenges if available, otherwise fall back to dummy data
+  const displayChallenges = challenges.length > 0 ? challenges : questions;
+  
+  // Group challenges by category (for API challenges, we'll need to determine category from tags)
   const groupedQuestions = categories.reduce((acc, category) => {
-    acc[category] = questions.filter((q) => q.category === category);
+    if (challenges.length > 0) {
+      // For API challenges, categorize based on tags
+      acc[category] = challenges.filter((challenge) => {
+        const tags = challenge.tags.map(tag => tag.toUpperCase());
+        switch (category) {
+          case "pf":
+            return tags.some(tag => tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS"));
+          case "oop":
+            return tags.some(tag => tag.includes("OOP") || tag.includes("OBJECT-ORIENTED"));
+          case "dsa":
+            return tags.some(tag => tag.includes("DSA") || tag.includes("DATA STRUCTURES") || tag.includes("ALGORITHMS"));
+          default:
+            return false;
+        }
+      });
+    } else {
+      // Fallback to dummy data
+      acc[category] = questions.filter((q) => q.category === category);
+    }
     return acc;
-  }, {} as Record<string, Question[]>);
+  }, {} as Record<string, any[]>);
+
+  // Add a "Other" category for challenges that don't fit PF, OOP, or DSA
+  const otherChallenges = challenges.length > 0 
+    ? challenges.filter((challenge) => {
+        const tags = challenge.tags.map(tag => tag.toUpperCase());
+        return !tags.some(tag => 
+          tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS") ||
+          tag.includes("DSA") || tag.includes("DATA STRUCTURES") || tag.includes("ALGORITHMS") ||
+          tag.includes("OOP") || tag.includes("OBJECT-ORIENTED")
+        );
+      })
+    : [];
+
+  if (otherChallenges.length > 0) {
+    groupedQuestions["other"] = otherChallenges;
+  }
 
   const handleProblemClick = (problemId: string) => {
     router.push(`/problems/${problemId}`);
@@ -211,14 +322,19 @@ export default function ProblemsPage() {
                 <h1 className="text-3xl font-bold text-foreground tracking-tight">
                   Problems
                 </h1>
+                {error && (
+                  <p className="text-red-400 text-sm mt-2">{error}</p>
+                )}
               </div>
               <div className="flex items-center space-x-3">
                 <Trophy className="h-6 w-6 text-yellow-500" />
                 <div className="text-sm">
                   <div className="text-foreground font-semibold">
-                    4/12 Solved
+                    {challenges.length > 0 ? `${challenges.length} Generated` : "4/12 Solved"}
                   </div>
-                  <div className="text-muted-foreground">33.3% Complete</div>
+                  <div className="text-muted-foreground">
+                    {challenges.length > 0 ? "Your AI-generated challenges" : "33.3% Complete"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -249,110 +365,115 @@ export default function ProblemsPage() {
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border border-border shadow-sm bg-card">
-                  <table className="w-full min-w-[700px]">
+                  <table className="w-full min-w-[700px] table-fixed">
                     <thead>
                       <tr className="border-b border-border bg-muted/50">
-                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-12">
+                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-16">
                           Status
                         </th>
-                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs">
+                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-1/3">
                           Title
                         </th>
                         <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-24">
                           Difficulty
                         </th>
-                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs">
+                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-32">
                           Acceptance
                         </th>
-                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs">
+                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-48">
                           Tags
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {categoryQuestions.map((question) => (
-                        <tr
-                          key={question.id}
-                          onClick={() => handleProblemClick(question.id)}
-                          className={cn(
-                            "border-b border-border group hover:bg-muted/50 transition-colors duration-200 cursor-pointer"
-                          )}
-                        >
-                          <td className="py-4 px-4 sm:px-6">
-                            <div className="flex items-center justify-center">
-                              {question.isCompleted ? (
-                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                              ) : question.isPremium ? (
-                                <Lock className="h-4 w-4 text-yellow-500" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-muted-foreground" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 sm:px-6">
-                            <div className="flex items-center gap-2">
-                              <span
+                      {categoryQuestions.length > 0 ? (
+                        categoryQuestions.map((question) => (
+                          <tr
+                            key={question.id}
+                            onClick={() => handleProblemClick(question.id)}
+                            className={cn(
+                              "border-b border-border group hover:bg-muted/50 transition-colors duration-200 cursor-pointer"
+                            )}
+                          >
+                            <td className="py-4 px-4 sm:px-6 w-16">
+                              <div className="flex items-center justify-center">
+                                {question.isCompleted ? (
+                                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                ) : question.isPremium ? (
+                                  <Lock className="h-4 w-4 text-yellow-500" />
+                                ) : (
+                                  <Circle className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 w-1/3">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "font-medium group-hover:text-primary transition-colors duration-200",
+                                    question.isCompleted
+                                      ? "text-emerald-400"
+                                      : "text-foreground"
+                                  )}
+                                >
+                                  {question.title}
+                                </span>
+                                {question.isPremium && (
+                                  <Lock className="h-3 w-3 text-yellow-500" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 w-24">
+                              <Badge
+                                variant="outline"
                                 className={cn(
-                                  "font-medium group-hover:text-primary transition-colors duration-200",
-                                  question.isCompleted
-                                    ? "text-emerald-400"
-                                    : "text-foreground"
+                                  "border-0 font-medium text-xs",
+                                  getDifficultyTextColor(question.difficulty)
                                 )}
                               >
-                                {question.title}
-                              </span>
-                              {question.isPremium && (
-                                <Lock className="h-3 w-3 text-yellow-500" />
-                              )}
-                            </div>
-                            <div className="text-muted-foreground text-sm mt-1 line-clamp-2">
-                              {question.description}
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 sm:px-6">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "border-0 font-medium text-xs",
-                                getDifficultyTextColor(question.difficulty)
-                              )}
-                            >
-                              {question.difficulty}
-                            </Badge>
-                          </td>
-                          <td className="py-4 px-4 sm:px-6">
-                            <div className="text-sm">
-                              <div className="text-foreground font-medium">
-                                {question.acceptanceRate}%
+                                {question.difficulty}
+                              </Badge>
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 w-32">
+                              <div className="text-sm">
+                                <div className="text-foreground font-medium">
+                                  {question.acceptanceRate}%
+                                </div>
+                                <div className="text-muted-foreground text-xs">
+                                  {question.solvedCount?.toLocaleString()} solved
+                                </div>
                               </div>
-                              <div className="text-muted-foreground text-xs">
-                                {question.solvedCount?.toLocaleString()} solved
+                            </td>
+                            <td className="py-4 px-4 sm:px-6 w-48">
+                              <div className="flex flex-wrap gap-1">
+                                {question.tags.slice(0, 3).map((tag: string) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 bg-muted text-muted-foreground hover:bg-muted/80"
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {question.tags.length > 3 && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs px-2 py-0.5 bg-muted text-muted-foreground"
+                                  >
+                                    +{question.tags.length - 3}
+                                  </Badge>
+                                )}
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4 sm:px-6">
-                            <div className="flex flex-wrap gap-1">
-                              {question.tags.slice(0, 3).map((tag) => (
-                                <Badge
-                                  key={tag}
-                                  variant="secondary"
-                                  className="text-xs px-2 py-0.5 bg-muted text-muted-foreground hover:bg-muted/80"
-                                >
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {question.tags.length > 3 && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs px-2 py-0.5 bg-muted text-muted-foreground"
-                                >
-                                  +{question.tags.length - 3}
-                                </Badge>
-                              )}
-                            </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="py-8 px-4 sm:px-6 text-center text-muted-foreground">
+                            No problems in this category yet.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
