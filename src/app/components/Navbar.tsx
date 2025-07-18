@@ -1,5 +1,12 @@
 import { NavigationMenu } from "../../components/ui/navigation-menu";
 import Link from "next/link";
+import { RocketIcon, TrophyIcon } from "lucide-react";
+import {
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "../../components/ui/navigation-menu";
 
 export function Navbar() {
   return (
@@ -13,12 +20,37 @@ export function Navbar() {
       {/* Center: Features */}
       <div className="flex-1 flex justify-center">
         <NavigationMenu>
-          <Link href="/feature" className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl shadow-lg transition-colors duration-200 text-lg mx-1">
-            Core Features
-          </Link>
-          <Link href="/daily" className="px-6 py-2 bg-gray-900 hover:bg-gray-800 text-white border border-emerald-500 rounded-xl shadow-lg transition-colors duration-200 text-lg mx-1">
-            Daily CodeWar
-          </Link>
+          <NavigationMenuList>
+            <NavigationMenuItem>
+              <NavigationMenuTrigger>
+                <span className="flex items-center gap-2">
+                  <RocketIcon className="w-5 h-5 text-emerald-400" />
+                  Core Features
+                </span>
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="p-4 w-64">
+                  <p className="text-sm text-gray-300 mb-2">Explore all the powerful features of AI CodeLab.</p>
+                  <Link href="/feature" className="block text-emerald-400 hover:underline">See Features</Link>
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuTrigger>
+                <span className="flex items-center gap-2">
+                  <TrophyIcon className="w-5 h-5 text-yellow-400" />
+                  Daily CodeWar
+                  <span className="ml-2 px-2 py-0.5 bg-emerald-500 text-black text-xs rounded-full">New</span>
+                </span>
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="p-4 w-64">
+                  <p className="text-sm text-gray-300 mb-2">Compete in today's coding challenge and climb the leaderboard!</p>
+                  <Link href="/daily" className="block text-emerald-400 hover:underline">Go to Daily CodeWar</Link>
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+          </NavigationMenuList>
         </NavigationMenu>
       </div>
       {/* Right: Auth Buttons */}

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import CodeEditor from "@/components/CodeEditor";
+import CodeEditor from "../../components/CodeEditor";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -389,10 +389,9 @@ export default function ProblemPage() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code, language) => {
+              onSubmit={(code) => {
                 console.log("Submitting solution:", {
                   code,
-                  language,
                   problemId,
                 });
                 // Handle submission logic here

@@ -334,10 +334,9 @@ export default function Page() {
                   description: example.explanation,
                 })) || []
               }
-              onSubmit={(code, language) => {
+              onSubmit={(code) => {
                 console.log("Submitting solution:", {
                   code,
-                  language,
                   questions,
                 });
                 // Handle submission logic here
