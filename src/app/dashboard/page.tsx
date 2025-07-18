@@ -7,12 +7,45 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icons } from "@/components/ui/icons";
 import { Footer } from "../components/Footer";
+import { ArrowRight, CheckCircle2, XCircle, AlertTriangle, Clock, Circle } from "lucide-react";
+
+type Difficulty = "EASY" | "MEDIUM" | "HARD";
+type Result = "PENDING" | "PASS" | "FAIL" | "ERROR";
+
+interface ApiChallenge {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: Difficulty;
+  tags: string[];
+  createdById: string;
+  isDaily: boolean;
+  createdAt: string;
+  createdBy?: {
+    name: string | null;
+    email: string;
+  };
+  submissions: {
+    id: string;
+    result: Result;
+    score: number | null;
+    runtime: number | null;
+    memory: number | null;
+    createdAt: string;
+  }[];
+  _count?: {
+    submissions: number;
+  };
+}
 
 export default function DashboardPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
   const [numberOfProblems, setNumberOfProblems] = useState("1");
   const [generatedChallenges, setGeneratedChallenges] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [userProblems, setUserProblems] = useState<ApiChallenge[]>([]);
+  const [isLoadingProblems, setIsLoadingProblems] = useState(false);
+  const [hasFetchedProblems, setHasFetchedProblems] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -22,6 +55,44 @@ export default function DashboardPage() {
       router.push("/login");
     }
   }, [status, router]);
+
+  // Fetch user's problems when session is available (only once per session)
+  useEffect(() => {
+    if (session?.user?.id && !hasFetchedProblems && !isLoadingProblems) {
+      fetchUserProblems();
+    }
+  }, [session?.user?.id, hasFetchedProblems, isLoadingProblems]);
+
+  // Reset fetch state when user changes
+  useEffect(() => {
+    if (session?.user?.id) {
+      setHasFetchedProblems(false);
+      setUserProblems([]);
+    }
+  }, [session?.user?.id]);
+
+  const fetchUserProblems = async () => {
+    if (!session?.user?.id || hasFetchedProblems || isLoadingProblems) return;
+    
+    try {
+      setIsLoadingProblems(true);
+      setHasFetchedProblems(true);
+      
+      const response = await fetch(`/api/challenges?userId=${session.user.id}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        // Take only the latest 5 problems
+        setUserProblems((data.challenges || []).slice(0, 5));
+      } else {
+        console.error("Failed to fetch user problems:", data.error);
+      }
+    } catch (error) {
+      console.error("Error fetching user problems:", error);
+    } finally {
+      setIsLoadingProblems(false);
+    }
+  };
 
   // Show loading while checking authentication
   if (status === "loading") {
@@ -47,60 +118,99 @@ export default function DashboardPage() {
     streak: 7,
   };
 
-  const problems = [
-    {
-      title: "Two Sum",
-      difficulty: "Easy",
-      acceptance: "49.2%",
-      solved: true,
-      category: "Array",
-      points: 10,
-    },
-    {
-      title: "Add Two Numbers",
-      difficulty: "Medium",
-      acceptance: "38.1%",
-      solved: false,
-      category: "Linked List",
-      points: 25,
-    },
-    {
-      title: "Longest Substring Without Repeating Characters",
-      difficulty: "Medium",
-      acceptance: "33.8%",
-      solved: true,
-      category: "String",
-      points: 25,
-    },
-    {
-      title: "Median of Two Sorted Arrays",
-      difficulty: "Hard",
-      acceptance: "35.2%",
-      solved: false,
-      category: "Binary Search",
-      points: 50,
-    },
-    {
-      title: "Valid Parentheses",
-      difficulty: "Easy",
-      acceptance: "40.8%",
-      solved: true,
-      category: "Stack",
-      points: 10,
-    },
-  ];
-
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Easy":
+      case "EASY":
         return "text-emerald-400";
-      case "Medium":
+      case "MEDIUM":
         return "text-yellow-400";
-      case "Hard":
+      case "HARD":
         return "text-red-400";
       default:
         return "text-gray-400";
     }
+  };
+
+  const getStatusDisplay = (challenge: ApiChallenge) => {
+    if (challenge.submissions.length === 0) {
+      return {
+        status: "Not Solved",
+        icon: <Circle className="h-5 w-5 text-gray-400" />,
+        color: "text-gray-400",
+        bgColor: "bg-gray-400/10",
+        badgeColor: "bg-gray-500 text-white"
+      };
+    }
+
+    const latestSubmission = challenge.submissions[0];
+    
+    switch (latestSubmission.result) {
+      case "PASS":
+        return {
+          status: "Accepted",
+          icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
+          color: "text-emerald-500",
+          bgColor: "bg-emerald-500/10",
+          badgeColor: "bg-green-500 text-white"
+        };
+      case "FAIL":
+        return {
+          status: "Failed",
+          icon: <XCircle className="h-5 w-5 text-rose-500" />,
+          color: "text-rose-500",
+          bgColor: "bg-rose-500/10",
+          badgeColor: "bg-red-500 text-white"
+        };
+      case "ERROR":
+        return {
+          status: "Error",
+          icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
+          color: "text-orange-500",
+          bgColor: "bg-orange-500/10",
+          badgeColor: "bg-red-500 text-white"
+        };
+      case "PENDING":
+        return {
+          status: "Pending",
+          icon: <Clock className="h-5 w-5 text-yellow-500" />,
+          color: "text-yellow-500",
+          bgColor: "bg-yellow-500/10",
+          badgeColor: "bg-yellow-500 text-white"
+        };
+      default:
+        return {
+          status: "Unknown",
+          icon: <Circle className="h-5 w-5 text-gray-400" />,
+          color: "text-gray-400",
+          bgColor: "bg-gray-400/10",
+          badgeColor: "bg-gray-500 text-white"
+        };
+    }
+  };
+
+  const getCategory = (challenge: ApiChallenge) => {
+    const tags = challenge.tags.map(tag => tag.toUpperCase());
+    
+    if (tags.some(tag => tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS"))) {
+      return "PF";
+    } else if (tags.some(tag => tag.includes("OOP") || tag.includes("OBJECT-ORIENTED"))) {
+      return "OOP";
+    } else {
+      return "DSA";
+    }
+  };
+
+  const getPoints = (challenge: ApiChallenge) => {
+    if (challenge.submissions.length === 0) {
+      return 0;
+    }
+    
+    const latestSubmission = challenge.submissions[0];
+    if (latestSubmission.result === "PASS" && latestSubmission.score !== null) {
+      return latestSubmission.score;
+    }
+    
+    return 0;
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -138,6 +248,10 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     signOut({ callbackUrl: "/login" });
+  };
+
+  const handleSeeAllProblems = () => {
+    router.push("/problems");
   };
 
   return (
@@ -317,10 +431,18 @@ export default function DashboardPage() {
 
         {/* Problems List */}
         <div className="bg-gray-900 rounded-xl shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
-          <div className="p-6 border-b border-gray-800">
+          <div className="p-6 border-b border-gray-800 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white tracking-tight">
               Recent Problems
             </h2>
+            <Button
+              onClick={handleSeeAllProblems}
+              variant="outline"
+              className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+            >
+              See All
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -336,9 +458,6 @@ export default function DashboardPage() {
                     Difficulty
                   </th>
                   <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
-                    Acceptance
-                  </th>
-                  <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
                     Points
                   </th>
                   <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
@@ -347,50 +466,67 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {problems.map((problem, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-gray-800 hover:bg-gray-800/50 hover:shadow-lg transition-all duration-200 cursor-pointer group"
-                  >
-                    <td className="py-5 px-6">
-                      {problem.solved ? (
-                        <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                          <Icons.check className="w-3 h-3 text-white" />
-                        </div>
-                      ) : (
-                        <div className="w-5 h-5 border-2 border-gray-600 rounded-full group-hover:border-emerald-500 transition-colors duration-200"></div>
-                      )}
-                    </td>
-                    <td className="py-5 px-6">
-                      <span className="text-white font-semibold hover:text-emerald-400 transition-colors duration-200">
-                        {problem.title}
-                      </span>
-                    </td>
-                    <td className="py-5 px-6">
-                      <span
-                        className={`font-semibold ${getDifficultyColor(
-                          problem.difficulty
-                        )}`}
-                      >
-                        {problem.difficulty}
-                      </span>
-                    </td>
-                    <td className="py-5 px-6 text-gray-300 font-medium">
-                      {problem.acceptance}
-                    </td>
-                    <td className="py-5 px-6 text-gray-300 font-medium">
-                      {problem.points}
-                    </td>
-                    <td className="py-5 px-6">
-                      <Badge
-                        variant="outline"
-                        className="border-gray-700 text-gray-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-all duration-200"
-                      >
-                        {problem.category}
-                      </Badge>
+                {isLoadingProblems ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 px-6 text-center text-gray-400">
+                      Loading problems...
                     </td>
                   </tr>
-                ))}
+                ) : userProblems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 px-6 text-center text-gray-400">
+                      No problems created yet. Generate your first problem above!
+                    </td>
+                  </tr>
+                ) : (
+                  userProblems.map((problem) => {
+                    const status = getStatusDisplay(problem);
+                    const category = getCategory(problem);
+                    const points = getPoints(problem);
+                    
+                    return (
+                      <tr
+                        key={problem.id}
+                        className="border-b border-gray-800 hover:bg-gray-800/50 hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                        onClick={() => router.push(`/problems/${problem.id}`)}
+                      >
+                        <td className="py-5 px-6">
+                          <div className="flex items-center">
+                            {status.icon}
+                            <span className="ml-2 text-sm font-medium text-gray-300">
+                              {status.status}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-5 px-6">
+                          <span className="text-white font-semibold hover:text-emerald-400 transition-colors duration-200">
+                            {problem.title}
+                          </span>
+                        </td>
+                        <td className="py-5 px-6">
+                          <span
+                            className={`font-semibold ${getDifficultyColor(
+                              problem.difficulty
+                            )}`}
+                          >
+                            {problem.difficulty}
+                          </span>
+                        </td>
+                        <td className="py-5 px-6 text-gray-300 font-medium">
+                          {points}
+                        </td>
+                        <td className="py-5 px-6">
+                          <Badge
+                            variant="outline"
+                            className="border-gray-700 text-gray-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-all duration-200"
+                          >
+                            {category}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

@@ -18,28 +18,26 @@ async function generateDailyChallenge(): Promise<GeneratedChallenge> {
   const difficulties = ['EASY', 'MEDIUM', 'HARD'];
   const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
 
-  const prompt = `
-Generate a unique daily coding challenge with the following specifications:
-- Category: ${randomCategory}
-- Difficulty: ${randomDifficulty}
-- Must be engaging and suitable for daily practice
-- Should be solvable in 15-30 minutes
-
-Return the response in this exact JSON format:
-{
-  "title": "Challenge Title",
-  "description": "Detailed problem description with requirements, constraints, and examples",
-  "difficulty": "${randomDifficulty}",
-  "tags": ["tag1", "tag2", "tag3"]
-}
-
-Make sure the challenge is:
-- Focused on ${randomCategory} concepts
-- Well-structured with clear requirements
-- Includes input/output examples
-- Has relevant programming tags
-- Is engaging for daily practice
-`;
+  const prompt = 
+    'Generate a unique daily coding challenge with the following specifications:\n' +
+    '- Category: ' + randomCategory + '\n' +
+    '- Difficulty: ' + randomDifficulty + '\n' +
+    '- Must be engaging and suitable for daily practice\n' +
+    '- Should be solvable in 15-30 minutes\n\n' +
+    'Return a clean, well-structured problem statement in plain text format (no markdown, no JSON, no special characters like * or `). The response should include:\n\n' +
+    '1. A clear problem title\n' +
+    '2. Detailed problem description with requirements\n' +
+    '3. Input format and constraints\n' +
+    '4. Output format\n' +
+    '5. Examples with input/output pairs\n' +
+    '6. Relevant programming concepts and tags\n\n' +
+    'Make sure the challenge is:\n' +
+    '- Focused on ' + randomCategory + ' concepts\n' +
+    '- Well-structured with clear requirements\n' +
+    '- Includes input/output examples\n' +
+    '- Has relevant programming concepts\n' +
+    '- Is engaging for daily practice\n' +
+    '- Written in clean, readable text that can be displayed directly in HTML';
 
   const model = ai.models.generateContent({
     model: "gemini-2.5-flash",
@@ -52,18 +50,51 @@ Make sure the challenge is:
     throw new Error('Empty response from Gemini');
   }
 
-  // Extract JSON from response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Failed to extract JSON from Gemini response');
+  // Process the plain text response directly
+  let challenge: GeneratedChallenge;
+  try {
+    // Extract title from the first line or generate one
+    const lines = text.split('\n').filter(line => line.trim());
+    const title = lines[0]?.trim() || 'Generated Daily Challenge';
+    
+    // Use the full text as description
+    const description = text.trim();
+    
+    // Use the specified difficulty
+    const difficulty: 'EASY' | 'MEDIUM' | 'HARD' = randomDifficulty as 'EASY' | 'MEDIUM' | 'HARD';
+    
+    // Extract tags based on category and content
+    const tags: string[] = [];
+    if (randomCategory.includes('PF') || randomCategory.includes('Programming Fundamentals')) {
+      tags.push('Programming Fundamentals', 'Basic Concepts', 'Variables', 'Control Flow');
+    } else if (randomCategory.includes('OOP') || randomCategory.includes('Object-Oriented')) {
+      tags.push('Object-Oriented Programming', 'Classes', 'Inheritance', 'Polymorphism');
+    } else if (randomCategory.includes('DSA') || randomCategory.includes('Data Structures')) {
+      tags.push('Data Structures', 'Algorithms', 'Arrays', 'Sorting');
+    }
+    
+    // Add content-based tags
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('array')) tags.push('Arrays');
+    if (lowerText.includes('string')) tags.push('Strings');
+    if (lowerText.includes('tree')) tags.push('Trees');
+    if (lowerText.includes('graph')) tags.push('Graphs');
+    if (lowerText.includes('dynamic programming') || lowerText.includes('dp')) tags.push('Dynamic Programming');
+    if (lowerText.includes('recursion')) tags.push('Recursion');
+    if (lowerText.includes('sorting')) tags.push('Sorting');
+    if (lowerText.includes('searching')) tags.push('Searching');
+    
+    challenge = {
+      title,
+      description,
+      difficulty,
+      tags: [...new Set(tags)] // Remove duplicates
+    };
+  } catch (parseError) {
+    console.log('Failed to process Gemini response:', text);
+    console.log('Parse error:', parseError);
+    throw new Error('Failed to process AI response');
   }
-
-  let jsonString = jsonMatch[0];
-  jsonString = jsonString.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
-  jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1');
-  jsonString = jsonString.replace(/([^"\\])\s*"/g, '$1"');
-
-  const challenge = JSON.parse(jsonString);
 
   if (!challenge.title || !challenge.description || !challenge.difficulty || !challenge.tags) {
     throw new Error('Invalid challenge structure');

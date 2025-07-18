@@ -80,29 +80,27 @@ export async function POST(request: NextRequest) {
               difficultyPrompt = `- Difficulty: You decide the appropriate difficulty level (EASY, MEDIUM, or HARD) based on the complexity of the problem`;
             }
 
-            const prompt = `
-Generate a unique coding challenge with the following specifications:
-- Category: ${category}
-${difficultyPrompt}
-- Must be completely different from these existing challenges: ${JSON.stringify(existingChallenges.map((c: { title: string; description: string }) => c.title))}
-- Must be different from these already generated: ${JSON.stringify(generatedChallenges.map((c: GeneratedChallenge) => c.title))}
-
-Return the response in this exact JSON format:
-{
-  "title": "Challenge Title",
-  "description": "Detailed problem description with requirements, constraints, and examples",
-  "difficulty": "EASY|MEDIUM|HARD",
-  "tags": ["tag1", "tag2", "tag3"]
-}
-
-Make sure the challenge is:
-- Focused on ${category} concepts
-- Well-structured with clear requirements
-- Includes input/output examples
-- Has relevant programming tags
-- Is unique and not similar to existing challenges
-- If difficulty not specified, choose appropriate level based on problem complexity
-`;
+            const prompt = 
+              'Generate a unique coding challenge with the following specifications:\n' +
+              '- Category: ' + category + '\n' +
+              difficultyPrompt + '\n' +
+              '- Must be completely different from these existing challenges: ' + JSON.stringify(existingChallenges.map((c: { title: string; description: string }) => c.title)) + '\n' +
+              '- Must be different from these already generated: ' + JSON.stringify(generatedChallenges.map((c: GeneratedChallenge) => c.title)) + '\n\n' +
+              'Return a clean, well-structured problem statement in plain text format (no markdown, no JSON, no special characters like * or `). The response should include:\n\n' +
+              '1. A clear problem title\n' +
+              '2. Detailed problem description with requirements\n' +
+              '3. Input format and constraints\n' +
+              '4. Output format\n' +
+              '5. Examples with input/output pairs\n' +
+              '6. Relevant programming concepts and tags\n\n' +
+              'Make sure the challenge is:\n' +
+              '- Focused on ' + category + ' concepts\n' +
+              '- Well-structured with clear requirements\n' +
+              '- Includes input/output examples\n' +
+              '- Has relevant programming concepts\n' +
+              '- Is unique and not similar to existing challenges\n' +
+              '- If difficulty not specified, choose appropriate level based on problem complexity\n' +
+              '- Written in clean, readable text that can be displayed directly in HTML';
 
             const model = ai.models.generateContent({
               model: "gemini-2.5-flash",
@@ -116,28 +114,53 @@ Make sure the challenge is:
               continue;
             }
 
-            // Extract JSON from response with better error handling
+            // Process the plain text response directly
             let challenge: GeneratedChallenge;
             try {
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (!jsonMatch) {
-                    console.log('Failed to extract JSON from Gemini response:', text);
-                    continue;
+                // Extract title from the first line or generate one
+                const lines = text.split('\n').filter(line => line.trim());
+                const title = lines[0]?.trim() || 'Generated ' + category + ' Challenge';
+                
+                // Use the full text as description
+                const description = text.trim();
+                
+                // Determine difficulty based on content analysis
+                let difficulty: 'EASY' | 'MEDIUM' | 'HARD' = 'MEDIUM';
+                const lowerText = text.toLowerCase();
+                if (lowerText.includes('simple') || lowerText.includes('basic') || lowerText.includes('easy')) {
+                    difficulty = 'EASY';
+                } else if (lowerText.includes('complex') || lowerText.includes('advanced') || lowerText.includes('hard')) {
+                    difficulty = 'HARD';
                 }
-
-                // Try to clean and parse the JSON
-                let jsonString = jsonMatch[0];
                 
-                // Remove any markdown formatting
-                jsonString = jsonString.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+                // Extract tags based on category and content
+                const tags: string[] = [];
+                if (category.includes('PF') || category.includes('Programming Fundamentals')) {
+                    tags.push('Programming Fundamentals', 'Basic Concepts', 'Variables', 'Control Flow');
+                } else if (category.includes('OOP') || category.includes('Object-Oriented')) {
+                    tags.push('Object-Oriented Programming', 'Classes', 'Inheritance', 'Polymorphism');
+                } else if (category.includes('DSA') || category.includes('Data Structures')) {
+                    tags.push('Data Structures', 'Algorithms', 'Arrays', 'Sorting');
+                }
                 
-                // Try to fix common JSON issues
-                jsonString = jsonString.replace(/,(\s*[}\]])/g, '$1'); // Remove trailing commas
-                jsonString = jsonString.replace(/([^"\\])\s*"/g, '$1"'); // Fix unescaped quotes
+                // Add content-based tags
+                if (lowerText.includes('array')) tags.push('Arrays');
+                if (lowerText.includes('string')) tags.push('Strings');
+                if (lowerText.includes('tree')) tags.push('Trees');
+                if (lowerText.includes('graph')) tags.push('Graphs');
+                if (lowerText.includes('dynamic programming') || lowerText.includes('dp')) tags.push('Dynamic Programming');
+                if (lowerText.includes('recursion')) tags.push('Recursion');
+                if (lowerText.includes('sorting')) tags.push('Sorting');
+                if (lowerText.includes('searching')) tags.push('Searching');
                 
-                challenge = JSON.parse(jsonString);
+                challenge = {
+                    title,
+                    description,
+                    difficulty,
+                    tags: [...new Set(tags)] // Remove duplicates
+                };
             } catch (parseError) {
-                console.log('Failed to parse JSON from Gemini response:', text);
+                console.log('Failed to process Gemini response:', text);
                 console.log('Parse error:', parseError);
                 continue;
             }
