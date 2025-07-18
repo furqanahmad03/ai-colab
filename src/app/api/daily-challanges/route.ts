@@ -94,6 +94,25 @@ async function getOrCreateSystemUser() {
   return systemUser;
 }
 
+async function isChallengeDuplicate(title: string, description: string): Promise<boolean> {
+  // Check if a similar challenge already exists in DailyChallenge collection
+  const existingDailyChallenges = await prisma.dailyChallenge.findMany({
+    include: {
+      challenge: true
+    }
+  });
+
+  return existingDailyChallenges.some(dailyChallenge => {
+    const challenge = dailyChallenge.challenge;
+    const titleSimilarity = challenge.title.toLowerCase().includes(title.toLowerCase()) || 
+                           title.toLowerCase().includes(challenge.title.toLowerCase());
+    const descriptionSimilarity = challenge.description.toLowerCase().includes(description.toLowerCase()) ||
+                                 description.toLowerCase().includes(challenge.description.toLowerCase());
+    
+    return titleSimilarity || descriptionSimilarity;
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Get today's date at midnight (start of day)
@@ -105,89 +124,135 @@ export async function GET(request: NextRequest) {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     // Check if daily challenge exists for today
-    const existingDailyChallenge = await prisma.challenge.findFirst({
+    const existingDailyChallenge = await prisma.dailyChallenge.findFirst({
       where: {
-        isDaily: true,
-        createdAt: {
+        date: {
           gte: today,
           lt: tomorrow,
         },
       },
       include: {
-        createdBy: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-        _count: {
-          select: {
-            submissions: true,
+        challenge: {
+          include: {
+            createdBy: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            _count: {
+              select: {
+                submissions: true,
+              },
+            },
           },
         },
       },
     });
 
+    // If daily challenge exists for today, return it immediately
+    if (existingDailyChallenge) {
+      return NextResponse.json({
+        dailyChallenge: existingDailyChallenge.challenge,
+        date: today.toISOString().split('T')[0],
+        message: 'Returning existing daily challenge for today'
+      });
+    }
+
     // Get or create system user for daily challenges
     const systemUser = await getOrCreateSystemUser();
 
     // Generate a new daily challenge (regardless of whether one exists)
-    let newDailyChallenge;
-    try {
-      const generatedChallenge = await generateDailyChallenge();
-      
-      newDailyChallenge = await prisma.challenge.create({
-        data: {
-          title: generatedChallenge.title,
-          description: generatedChallenge.description,
-          difficulty: generatedChallenge.difficulty,
-          tags: generatedChallenge.tags,
-          createdById: systemUser.id,
-          isDaily: true,
-        },
-        include: {
-          createdBy: {
-            select: {
-              name: true,
-              email: true,
-            },
-          },
-          _count: {
-            select: {
-              submissions: true,
-            },
-          },
-        },
-      });
+    let newDailyChallenge: any = null;
+    let attempts = 0;
+    const maxAttempts = 5;
 
-      console.log('Generated new daily challenge:', newDailyChallenge.title);
-    } catch (error) {
-      console.error('Error generating daily challenge:', error);
+    while (attempts < maxAttempts) {
+      attempts++;
       
-      // If generation fails and no existing challenge, return error
-      if (!existingDailyChallenge) {
-        return NextResponse.json(
-          { 
-            error: 'Failed to generate daily challenge',
-            message: 'Unable to create daily challenge for today'
+      try {
+        const generatedChallenge = await generateDailyChallenge();
+        
+        // Check if this challenge is a duplicate
+        const isDuplicate = await isChallengeDuplicate(generatedChallenge.title, generatedChallenge.description);
+        
+        if (isDuplicate) {
+          console.log(`Attempt ${attempts}: Duplicate challenge detected, regenerating...`);
+          continue;
+        }
+
+        // Create the challenge first
+        const newChallenge = await prisma.challenge.create({
+          data: {
+            title: generatedChallenge.title,
+            description: generatedChallenge.description,
+            difficulty: generatedChallenge.difficulty,
+            tags: generatedChallenge.tags,
+            createdById: systemUser.id,
+            isDaily: true,
           },
-          { status: 500 }
-        );
+        });
+
+        // Create the daily challenge record
+        newDailyChallenge = await prisma.dailyChallenge.create({
+          data: {
+            challengeId: newChallenge.id,
+            date: today,
+          },
+          include: {
+            challenge: {
+              include: {
+                createdBy: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
+                _count: {
+                  select: {
+                    submissions: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        console.log('Generated new daily challenge:', newDailyChallenge.challenge.title);
+        break; // Successfully created, exit the loop
+        
+      } catch (error) {
+        console.error(`Error generating daily challenge (attempt ${attempts}):`, error);
+        
+        if (attempts === maxAttempts) {
+          return NextResponse.json(
+            { 
+              error: 'Failed to generate daily challenge after multiple attempts',
+              message: 'Unable to create daily challenge for today'
+            },
+            { status: 500 }
+          );
+        }
       }
-      
-      // If generation fails but existing challenge exists, return the existing one
+    }
+
+    // If we successfully created a new daily challenge
+    if (newDailyChallenge) {
       return NextResponse.json({
-        dailyChallenge: existingDailyChallenge,
+        dailyChallenge: newDailyChallenge.challenge,
         date: today.toISOString().split('T')[0],
-        message: 'Using existing daily challenge (generation failed)'
+        message: 'Generated new daily challenge for today'
       });
     }
 
-    return NextResponse.json({
-      dailyChallenge: newDailyChallenge,
-      date: today.toISOString().split('T')[0],
-      message: existingDailyChallenge ? 'Generated new daily challenge (replacing existing)' : 'Generated new daily challenge'
-    });
+    // Final fallback: return error
+    return NextResponse.json(
+      { 
+        error: 'Failed to generate daily challenge',
+        message: 'Unable to provide daily challenge for today'
+      },
+      { status: 500 }
+    );
 
   } catch (error) {
     console.error('Error in daily challenge API:', error);
