@@ -19,7 +19,7 @@ export function CTA() {
               Get Started
             </Button>
           </Link>
-          <Link href="/daily">
+          <Link href="/dashboard">
             <Button variant="outline" className="px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white border border-emerald-500 rounded-xl shadow-lg transition-colors duration-200 text-lg">
               Try Daily CodeWar
             </Button>
