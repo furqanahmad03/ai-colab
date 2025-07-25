@@ -5,7 +5,6 @@ import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Play,
   RefreshCw,
@@ -91,13 +90,11 @@ int main() {
 };
 
 interface CodeEditorProps {
-  problemId: string;
   testCases: TestCase[];
   onSubmit?: (code: string, language: Language) => void;
 }
 
 export default function CodeEditor({
-  problemId,
   testCases,
   onSubmit,
 }: CodeEditorProps) {
@@ -110,7 +107,7 @@ export default function CodeEditor({
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [showResults, setShowResults] = useState(false);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<unknown>(null);
 
   useEffect(() => {
     setCode(languageConfigs[selectedLanguage].defaultCode);
@@ -119,7 +116,7 @@ export default function CodeEditor({
     setShowResults(false);
   }, [selectedLanguage]);
 
-  const handleEditorDidMount = (editor: any) => {
+  const handleEditorDidMount = (editor: unknown) => {
     editorRef.current = editor;
   };
 
@@ -136,7 +133,7 @@ export default function CodeEditor({
     // Mock execution logic - in a real implementation, this would run on a backend
     let actualOutput = "";
     let passed = false;
-    let executionTime = Math.floor(Math.random() * 50) + 10; // 10-60ms
+    const executionTime = Math.floor(Math.random() * 50) + 10; // 10-60ms
     let error = "";
 
     try {

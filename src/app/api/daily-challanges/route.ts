@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { GoogleGenAI } from '@google/genai';
 
@@ -133,7 +133,12 @@ async function isChallengeDuplicate(title: string, description: string): Promise
     }
   });
 
-  return existingDailyChallenges.some((dailyChallenge: any) => {
+  return existingDailyChallenges.some((dailyChallenge: {
+    challenge: {
+      title: string;
+      description: string;
+    };
+  }) => {
     const challenge = dailyChallenge.challenge;
     const titleSimilarity = challenge.title.toLowerCase().includes(title.toLowerCase()) || 
                            title.toLowerCase().includes(challenge.title.toLowerCase());
@@ -144,7 +149,7 @@ async function isChallengeDuplicate(title: string, description: string): Promise
   });
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Get today's date at midnight (start of day)
     const today = new Date();
@@ -194,7 +199,7 @@ export async function GET(request: NextRequest) {
     const systemUser = await getOrCreateSystemUser();
 
     // Generate a new daily challenge (regardless of whether one exists)
-    let newDailyChallenge: any = null;
+    let newDailyChallenge: unknown = null;
     let attempts = 0;
     const maxAttempts = 5;
 
@@ -249,9 +254,9 @@ export async function GET(request: NextRequest) {
               },
             },
           });
-        } catch (createError: any) {
+        } catch (createError: unknown) {
           // If it's a unique constraint violation, it means another request already created today's challenge
-          if (createError.code === 'P2002') {
+          if ((createError as { code?: string }).code === 'P2002') {
             console.log('Daily challenge already exists for today, fetching existing one...');
             
             // Delete the challenge we just created since we can't link it to daily challenge
@@ -299,7 +304,7 @@ export async function GET(request: NextRequest) {
           throw createError;
         }
 
-        console.log('Generated new daily challenge:', newDailyChallenge.challenge.title);
+        console.log('Generated new daily challenge:', (newDailyChallenge as { challenge: { title: string } }).challenge.title);
         break; // Successfully created, exit the loop
         
       } catch (error) {
@@ -320,7 +325,7 @@ export async function GET(request: NextRequest) {
     // If we successfully created a new daily challenge
     if (newDailyChallenge) {
       return NextResponse.json({
-        dailyChallenge: newDailyChallenge.challenge,
+        dailyChallenge: (newDailyChallenge as { challenge: { title: string } }).challenge,
         date: today.toISOString().split('T')[0],
         message: 'Generated new daily challenge for today'
       });

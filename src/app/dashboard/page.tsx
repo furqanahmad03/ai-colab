@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -144,7 +144,6 @@ const ProblemsTableSkeleton = () => (
 export default function DashboardPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
   const [numberOfProblems, setNumberOfProblems] = useState("1");
-  const [generatedChallenges, setGeneratedChallenges] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [userProblems, setUserProblems] = useState<ApiChallenge[]>([]);
   const [isLoadingProblems, setIsLoadingProblems] = useState(false);
@@ -173,14 +172,6 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
-  // Fetch user's problems when session is available (only once per session)
-  useEffect(() => {
-    if (session?.user?.id && !hasFetchedProblems && !isLoadingProblems) {
-      fetchUserProblems();
-      fetchTodayChallenge();
-    }
-  }, [session?.user?.id, hasFetchedProblems, isLoadingProblems]);
-
   // Reset fetch state when user changes
   useEffect(() => {
     if (session?.user?.id) {
@@ -190,7 +181,7 @@ export default function DashboardPage() {
     }
   }, [session?.user?.id]);
 
-  const fetchUserProblems = async () => {
+  const fetchUserProblems = useCallback(async () => {
     if (!session?.user?.id || hasFetchedProblems || isLoadingProblems) return;
     
     try {
@@ -217,7 +208,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingProblems(false);
     }
-  };
+  }, [session?.user?.id, hasFetchedProblems, isLoadingProblems]);
 
   const fetchUserSubmissions = async () => {
     if (!session?.user?.id) return;
@@ -237,7 +228,11 @@ export default function DashboardPage() {
     }
   };
 
-  const calculateCompleteUserStats = (submissions: any[]) => {
+  const calculateCompleteUserStats = (submissions: Array<{
+    score: number | null;
+    result: string;
+    challengeId: string;
+  }>) => {
     let problemsSolved = 0;
     let totalPoints = 0;
     const solvedProblemIds = new Set();
@@ -330,7 +325,7 @@ export default function DashboardPage() {
     });
   };
 
-  const fetchTodayChallenge = async () => {
+  const fetchTodayChallenge = useCallback(async () => {
     if (!session?.user?.id || isLoadingTodayChallenge) return;
     
     try {
@@ -349,7 +344,15 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingTodayChallenge(false);
     }
-  };
+  }, [session?.user?.id, isLoadingTodayChallenge]);
+
+  // Fetch user's problems when session is available (only once per session)
+  useEffect(() => {
+    if (session?.user?.id && !hasFetchedProblems && !isLoadingProblems) {
+      fetchUserProblems();
+      fetchTodayChallenge();
+    }
+  }, [session?.user?.id, hasFetchedProblems, isLoadingProblems, fetchUserProblems, fetchTodayChallenge]);
 
   // Show loading while checking authentication
   if (status === "loading") {
@@ -482,7 +485,6 @@ export default function DashboardPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setGeneratedChallenges(data.generatedChallenges || []);
         console.log(data.generatedChallenges);
         router.push("/problems");
       } else {
@@ -673,18 +675,18 @@ export default function DashboardPage() {
           </form>
         </div>
 
-        {/* Today's Challenge */}
+        {/* Today&apos;s Challenge */}
         {isLoadingTodayChallenge ? (
           <div className="mb-10">
             <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">
-              Today's Challenge
+              Today&apos;s Challenge
             </h2>
             <TodayChallengeSkeleton />
           </div>
         ) : todayChallenge ? (
           <div className="mb-10">
             <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">
-              Today's Challenge
+              Today&apos;s Challenge
             </h2>
             <div className="bg-gray-900 rounded-xl shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
               <div className="p-6 border-b border-gray-800">

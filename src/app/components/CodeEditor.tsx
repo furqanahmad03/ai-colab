@@ -5,7 +5,6 @@ import { Editor } from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Play,
   RefreshCw,
@@ -41,13 +40,11 @@ const defaultCode = `function solution(input) {
 solution("test");`;
 
 interface CodeEditorProps {
-  problemId: string;
   testCases: TestCase[];
   onSubmit?: (code: string) => void;
 }
 
 export default function CodeEditor({
-  problemId,
   testCases,
   onSubmit,
 }: CodeEditorProps) {
@@ -57,9 +54,9 @@ export default function CodeEditor({
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [showResults, setShowResults] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<unknown>(null);
 
-  const handleEditorDidMount = (editor: any) => {
+  const handleEditorDidMount = (editor: unknown) => {
     editorRef.current = editor;
   };
 
@@ -70,14 +67,12 @@ export default function CodeEditor({
     await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 200));
     let actualOutput = "";
     let passed = false;
-    let executionTime = Math.floor(Math.random() * 50) + 10; // 10-60ms
+    const executionTime = Math.floor(Math.random() * 50) + 10; // 10-60ms
     let error = "";
     try {
       // Only support JavaScript execution
-      // eslint-disable-next-line no-new-func
       const log: string[] = [];
-      const customConsole = { log: (msg: any) => log.push(String(msg)) };
-      // eslint-disable-next-line no-new-func
+      const customConsole = { log: (msg: unknown) => log.push(String(msg)) };
       Function("console", code)(customConsole);
       actualOutput = log.join("\n");
       passed = actualOutput.trim() === testCase.expectedOutput.trim();
@@ -119,7 +114,7 @@ export default function CodeEditor({
           totalCount - passedCount
         } failed.`
       );
-    } catch (error) {
+    } catch {
       setConsoleOutput("Error: Failed to execute code");
     } finally {
       setIsRunning(false);

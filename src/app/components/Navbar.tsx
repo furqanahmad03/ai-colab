@@ -45,7 +45,7 @@ export function Navbar() {
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <div className="p-4 w-64">
-                  <p className="text-sm text-gray-300 mb-2">Compete in today's coding challenge and climb the leaderboard!</p>
+                  <p className="text-sm text-gray-300 mb-2">Compete in today&apos;s coding challenge and climb the leaderboard!</p>
                   <Link href="/daily" className="block text-emerald-400 hover:underline">Go to Daily CodeWar</Link>
                 </div>
               </NavigationMenuContent>

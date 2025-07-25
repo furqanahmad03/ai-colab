@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   // Redirect if not authenticated
@@ -55,8 +55,8 @@ export default function LoginPage() {
         router.push("/dashboard");
         router.refresh();
       }
-    } catch (error) {
-      setError("An error occurred during login");
+    } catch (error: unknown) {
+      setError("An error occurred during login: " + (error as Error).message);
     } finally {
       setIsLoading(false);
     }
@@ -133,7 +133,7 @@ export default function LoginPage() {
 
             <div className="text-center pt-4">
               <p className="text-gray-400 text-sm">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <Link
                   href="/signup"
                   className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"

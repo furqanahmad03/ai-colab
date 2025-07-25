@@ -50,7 +50,6 @@ async function evaluateSubmission(submissionId: string) {
     let evaluation = evaluateCodeIntelligently(
       submission.code,
       submission.language,
-      submission.challenge
     );
 
     // If AI is available, try to get a more detailed evaluation
@@ -95,7 +94,6 @@ async function evaluateSubmission(submissionId: string) {
 function evaluateCodeIntelligently(
   code: string,
   language: string,
-  challenge: any
 ) {
   console.log("🧠 Running smart code evaluation...");
 
@@ -103,9 +101,9 @@ function evaluateCodeIntelligently(
   const codeLength = code.trim().length;
 
   // Check for obvious failures
-  const isIncomplete = checkIfIncomplete(code, language);
-  const hasLogic = checkHasLogic(code, language);
-  const hasErrors = checkSyntaxErrors(code, language);
+  const isIncomplete = checkIfIncomplete(code);
+  const hasLogic = checkHasLogic(code);
+  const hasErrors = checkSyntaxErrors(code);
 
   let result: "PASS" | "FAIL" | "ERROR" = "PASS";
   let score = 100;
@@ -135,8 +133,8 @@ function evaluateCodeIntelligently(
   }
 
   // Generate realistic runtime and memory based on code complexity
-  const runtime = generateRealisticRuntime(code, language, score);
-  const memory = generateRealisticMemory(code, language, score);
+  const runtime = generateRealisticRuntime(language, score);
+  const memory = generateRealisticMemory(code, language);
 
   console.log(
     `📊 Evaluation result: ${result}, Score: ${score}, Feedback: ${feedback}`
@@ -152,9 +150,7 @@ function evaluateCodeIntelligently(
 }
 
 // Check if code is incomplete (contains placeholders, comments without implementation)
-function checkIfIncomplete(code: string, language: string): boolean {
-  const lowerCode = code.toLowerCase();
-
+function checkIfIncomplete(code: string): boolean {
   // Common incomplete patterns
   const incompletePatterns = [
     /\/\/ your code here/i,
@@ -172,9 +168,7 @@ function checkIfIncomplete(code: string, language: string): boolean {
 }
 
 // Check if code has actual problem-solving logic
-function checkHasLogic(code: string, language: string): boolean {
-  const lowerCode = code.toLowerCase();
-
+function checkHasLogic(code: string): boolean {
   // Look for signs of logic
   const logicPatterns = [
     /if\s*\(/,
@@ -192,7 +186,7 @@ function checkHasLogic(code: string, language: string): boolean {
 }
 
 // Basic syntax error detection
-function checkSyntaxErrors(code: string, language: string): boolean {
+function checkSyntaxErrors(code: string): boolean {
   try {
     // Very basic syntax checks
     const openBraces = (code.match(/\{/g) || []).length;
@@ -208,7 +202,6 @@ function checkSyntaxErrors(code: string, language: string): boolean {
 
 // Generate realistic runtime based on code complexity
 function generateRealisticRuntime(
-  code: string,
   language: string,
   score: number
 ): number {
@@ -231,7 +224,6 @@ function generateRealisticRuntime(
 function generateRealisticMemory(
   code: string,
   language: string,
-  score: number
 ): number {
   const baseMemory =
     language === "javascript"
@@ -252,7 +244,16 @@ function generateRealisticMemory(
 }
 
 // AI evaluation function (when available)
-async function getAIEvaluation(submission: any) {
+async function getAIEvaluation(submission: {
+  id: string;
+  code: string;
+  language: string;
+  challenge: {
+    id: string;
+    title: string;
+    description: string;
+  };
+}) {
   if (!ai) {
     throw new Error("AI not available");
   }
@@ -304,7 +305,7 @@ Please provide an evaluation in JSON format:
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: challengeId } = await params;
@@ -427,7 +428,7 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;

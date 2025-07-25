@@ -147,7 +147,7 @@ export default function ProblemsPage() {
     if (session?.user?.id) {
       fetchChallenges();
     }
-  }, [session]);
+  }, [session?.user?.id]);
 
   const fetchChallenges = async () => {
     try {

@@ -25,7 +25,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -78,8 +78,8 @@ export default function SignupPage() {
         // Redirect to login page after successful signup
         router.push("/login?message=Account created successfully");
       }
-    } catch (error) {
-      setError("An error occurred during signup");
+    } catch (error: unknown) {
+      setError("An error occurred during signup: " + (error as Error).message);
     } finally {
       setIsLoading(false);
     }

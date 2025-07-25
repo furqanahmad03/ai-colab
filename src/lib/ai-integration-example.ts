@@ -1,8 +1,8 @@
 import {
   processAIResponseForDatabase,
-  AIStreamHandler,
   demonstrateCompleteWorkflow,
 } from "./ai-content-example";
+import { AIStreamHandler } from "./utils";
 
 // Example integration with your existing problem page
 export async function handleAIGeneratedChallenge(
@@ -53,7 +53,7 @@ export async function handleAIGeneratedChallenge(
     console.error("Error handling AI challenge:", error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -61,9 +61,9 @@ export async function handleAIGeneratedChallenge(
 // Example: Stream handling for real-time AI responses
 export class AIChallengeLiveProcessor {
   private streamHandler: AIStreamHandler;
-  private onUpdate: (update: any) => void;
+  private onUpdate: (update: { type: string; data: unknown; timestamp: string }) => void;
 
-  constructor(onUpdate: (update: any) => void) {
+  constructor(onUpdate: (update: { type: string; data: unknown; timestamp: string }) => void) {
     this.onUpdate = onUpdate;
     this.streamHandler = new AIStreamHandler(
       (chunk) => this.handleChunk(chunk),
@@ -91,7 +91,7 @@ export class AIChallengeLiveProcessor {
     });
   }
 
-  private handleProgress(progress: any) {
+  private handleProgress(progress: { current: number; total?: number; message: string }) {
     this.onUpdate({
       type: "progress",
       data: progress,
@@ -113,7 +113,7 @@ export class AIChallengeLiveProcessor {
 // Example usage in your Next.js API route
 export const exampleApiIntegration = {
   // POST /api/ai/generate-challenge
-  async generateChallenge(request: any) {
+  async generateChallenge(request: Request) {
     try {
       const { prompt, userId, title } = await request.json();
 
@@ -139,7 +139,7 @@ export const exampleApiIntegration = {
         headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
+      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       });
@@ -172,7 +172,7 @@ async function callAIAPI(prompt: string): Promise<string> {
 // Example React component for live AI processing
 export const AIChallengeLiveComponent = {
   // This would be used in your React component
-  setupLiveProcessor: (onUpdate: (update: any) => void) => {
+  setupLiveProcessor: (onUpdate: (update: { type: string; data: unknown; timestamp: string }) => void) => {
     const processor = new AIChallengeLiveProcessor(onUpdate);
 
     // Example: Process chunks as they arrive
@@ -210,7 +210,7 @@ export const problemPageIntegration = {
       "user-id" // Replace with actual user ID
     );
 
-    if (result.success) {
+    if (result.success && result.challengeData) {
       // Update your problem page with the processed data
       const { challengeData } = result;
 
@@ -223,7 +223,7 @@ export const problemPageIntegration = {
         examples: challengeData.examples,
         constraints: challengeData.constraints,
         // Transform to match your Question interface
-        category: challengeData.tags.includes("array") ? "dsa" : "pf",
+        category: challengeData.tags?.includes("array") ? "dsa" : "pf",
         isCompleted: false,
         isPremium: false,
         acceptanceRate: 0,
@@ -236,11 +236,4 @@ export const problemPageIntegration = {
   },
 };
 
-// Export everything for easy use
-export {
-  handleAIGeneratedChallenge,
-  AIChallengeLiveProcessor,
-  exampleApiIntegration,
-  AIChallengeLiveComponent,
-  problemPageIntegration,
-};
+

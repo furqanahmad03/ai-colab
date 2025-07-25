@@ -16,10 +16,9 @@ import {
   CheckCircle2,
   Circle,
   Lock,
-  Trophy,
-  Timer,
   Play,
   Loader2,
+  Trophy
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
@@ -62,7 +61,14 @@ interface ApiChallenge {
     email: string;
   };
   isDaily: boolean;
-  submissions: any[];
+  submissions: Array<{
+    id: string;
+    result: string;
+    score: number | null;
+    runtime: number | null;
+    memory: number | null;
+    createdAt: string;
+  }>;
   _count: {
     submissions: number;
   };
@@ -70,7 +76,11 @@ interface ApiChallenge {
   // AI-generated content might have these additional fields
   aiGeneratedContent?: string;
   rawContent?: string;
-  examples?: any[];
+  examples?: Array<{
+    input: string;
+    output: string;
+    explanation?: string;
+  }>;
   constraints?: string[];
 }
 
@@ -347,7 +357,10 @@ export default function ProblemPage() {
   const [problem, setProblem] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    rawApiResponse: { challenge?: { aiGeneratedContent?: string } };
+    timestamp: string;
+  } | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -377,7 +390,7 @@ export default function ProblemPage() {
           if (response.status === 404) {
             setError("Challenge not found");
           } else if (response.status === 403) {
-            setError("Access denied - You don't have permission to view this challenge");
+            setError("Access denied - You don&apos;t have permission to view this challenge");
           } else {
             setError("Failed to fetch challenge");
           }
@@ -695,7 +708,6 @@ export default function ProblemPage() {
           {/* Right Side - Code Editor */}
           <div className="space-y-6">
             <CodeEditor
-              problemId={problemId}
               testCases={
                 problem.examples?.map((example) => ({
                   input: example.input,

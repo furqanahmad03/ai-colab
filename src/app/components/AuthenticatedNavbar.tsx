@@ -1,13 +1,11 @@
 'use client'
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/ui/icons";
 import Link from "next/link";
 
 export function AuthenticatedNavbar() {
   const { data: session } = useSession();
-  const router = useRouter();
 
   const user = {
     name: session?.user?.name || session?.user?.email || "User",

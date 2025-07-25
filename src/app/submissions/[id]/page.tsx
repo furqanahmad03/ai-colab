@@ -14,7 +14,6 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   CheckCircle,
-  AlertTriangle,
   XCircle,
   Clock,
   Cpu,
@@ -150,7 +149,7 @@ export default function SubmissionDetailPage() {
     const score = apiSubmission.score || 0;
 
     // Determine total test cases based on challenge difficulty (simplified)
-    let totalTestCases = 4; // Default
+    const totalTestCases = 4; // Default
 
     // Calculate test cases passed based on result status and score
     let testCasesPassed = 0;
@@ -317,7 +316,7 @@ export default function SubmissionDetailPage() {
               Submission <span className="text-emerald-400">Results</span>
             </h1>
             <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-              Here's how your solution performed on the challenge
+              Here&apos;s how your solution performed on the challenge
             </p>
           </div>
 

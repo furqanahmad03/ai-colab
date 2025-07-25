@@ -21,16 +21,16 @@ interface GeneratedChallenge {
 
 export async function POST(request: NextRequest) {
   try {
-    let body: GenerateRequest;
+    const body: GenerateRequest = await request.json();
     
-    try {
-      body = await request.json();
-    } catch (jsonError) {
-      return NextResponse.json(
-        { error: 'Invalid JSON in request body. Please check your request format.' },
-        { status: 400 }
-      );
-    }
+    // try {
+    //   body = await request.json();
+    // } catch (jsonError) {
+    //   return NextResponse.json(
+    //     { error: 'Invalid JSON in request body. Please check your request format.' },
+    //     { status: 400 }
+    //   );
+    // }
 
     const { userId, numberOfChallenges, difficultyLevel } = body;
     console.log(userId, numberOfChallenges, difficultyLevel);

@@ -10,7 +10,7 @@ import {
 
 // Example of your messy AI content with out-of-order packets
 const messyAIContent = `
-beautiful")`, `Packet(sequence_number=3, payload=" are you?")` `]` **Expected Output:** `["Hello,", " beautiful", "world!", " are you?", "How"]` **Explanation of Example Trace:** 1. Initial: `next_expected_sequence_number = 0`, `buffered_packets = {}`, `reassembled_message = []` 2. Process `Packet(seq=2, payload="world!")`: `seq=2` > `next_expected_seq=0`. Store: `buffered_packets = {2: "world!"}`. 3. Process `Packet(seq=0, payload="Hello,")`: `seq=0` == `next_expected_seq=0`. * Add "Hello," to `reassembled_message`. `reassembled_message = ["Hello,"]`. * Increment `next_expected_sequence_number` to 1. * Check for `seq=1`: Not in `buffered_packets`. Stop emitting contiguous block. 4. Process `Packet(seq=4, payload="How")`: `seq=4` > `next_expected_seq=1`. Store: `buffered_packets = {2: "world!", 4: "How"}`. 5. Process `Packet(seq=1, payload=" beautiful")`: `seq=1` == `next_expected_seq=1`. * Add " beautiful" to `reassembled_message`. `reassembled_message = ["Hello,", " beautiful"]`. * Increment `next_expected_sequence_number` to 2. * Check for `seq=2`: Found "world!" in `buffered_packets`. * Add "world!" to `reassembled_message`. `reassembled_message = ["Hello,", " beautiful", "world!"]`. * Remove `seq=2` from `buffered_packets`. * Increment `next_expected_sequence_number` to 3. * Check for `seq=3`: Not in `buffered_packets`. Stop
+beautiful"), Packet(sequence_number=3, payload=" are you?") ] Expected Output: ["Hello,", " beautiful", "world!", " are you?", "How"] Explanation of Example Trace: 1. Initial: next_expected_sequence_number = 0, buffered_packets = {}, reassembled_message = [] 2. Process Packet(seq=2, payload="world!"): seq=2 > next_expected_seq=0. Store: buffered_packets = {2: "world!"}. 3. Process Packet(seq=0, payload="Hello,"): seq=0 == next_expected_seq=0. * Add "Hello," to reassembled_message. reassembled_message = ["Hello,"]. * Increment next_expected_sequence_number to 1. * Check for seq=1: Not in buffered_packets. Stop emitting contiguous block. 4. Process Packet(seq=4, payload="How"): seq=4 > next_expected_seq=1. Store: buffered_packets = {2: "world!", 4: "How"}. 5. Process Packet(seq=1, payload=" beautiful"): seq=1 == next_expected_seq=1. * Add " beautiful" to reassembled_message. reassembled_message = ["Hello,", " beautiful"]. * Increment next_expected_sequence_number to 2. * Check for seq=2: Found "world!" in buffered_packets. * Add "world!" to reassembled_message. reassembled_message = ["Hello,", " beautiful", "world!"]. * Remove seq=2 from buffered_packets. * Increment next_expected_sequence_number to 3. * Check for seq=3: Not in buffered_packets. Stop
 `;
 
 // Example with cleaner packet format
@@ -207,7 +207,7 @@ export function demonstrateCompleteWorkflow(rawAIContent: string) {
     console.error('Error in workflow:', error);
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       data: null
     };
   }
@@ -254,21 +254,12 @@ export async function processAIResponseForDatabase(
     console.error('Error processing AI response:', error);
     return {
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
 
-// Export all demonstration functions
-export {
-  demonstrateBasicPacketReassembly,
-  demonstrateStreamingReassembly,
-  demonstrateRealTimeReassembly,
-  demonstrateMessyContentCleaning,
-  demonstrateVariousPacketFormats,
-  demonstrateCompleteWorkflow,
-  processAIResponseForDatabase
-};
+// All functions are already exported individually above
 
 // Main demonstration function
 export default function runAllDemonstrations() {
