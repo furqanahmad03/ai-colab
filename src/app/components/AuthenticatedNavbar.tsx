@@ -14,7 +14,7 @@ export function AuthenticatedNavbar() {
   };
 
   const handleLogout = () => {
-    signOut({ callbackUrl: "/login" });
+    signOut({ callbackUrl: "/app/page.tsx" });
   };
 
   return (
