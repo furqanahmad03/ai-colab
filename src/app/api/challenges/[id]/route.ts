@@ -9,6 +9,16 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    // Check if userId is provided (authentication check)
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
 
     const challenge = await prisma.challenge.findUnique({
       where: { id },
@@ -20,6 +30,9 @@ export async function GET(
           },
         },
         submissions: {
+          where: {
+            userId: userId, // Only include user's own submissions
+          },
           include: {
             user: {
               select: {
@@ -44,6 +57,18 @@ export async function GET(
       return NextResponse.json(
         { error: 'Challenge not found' },
         { status: 404 }
+      );
+    }
+
+    // Authorization check: Users can access challenges they created or daily challenges
+    // For now, allow access to all challenges, but filter submissions to user's own
+    // You can add more restrictive logic here if needed
+    const canAccess = challenge.isDaily || challenge.createdById === userId;
+    
+    if (!canAccess) {
+      return NextResponse.json(
+        { error: 'Access denied - You don\'t have permission to view this challenge' },
+        { status: 403 }
       );
     }
 

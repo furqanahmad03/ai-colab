@@ -56,6 +56,7 @@ export default function CodeEditor({
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [consoleOutput, setConsoleOutput] = useState<string>("");
   const [showResults, setShowResults] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const editorRef = useRef<any>(null);
 
   const handleEditorDidMount = (editor: any) => {
@@ -125,9 +126,14 @@ export default function CodeEditor({
     }
   };
 
-  const handleSubmit = () => {
-    if (onSubmit) {
-      onSubmit(code);
+  const handleSubmit = async () => {
+    if (onSubmit && !isSubmitting) {
+      setIsSubmitting(true);
+      try {
+        await onSubmit(code);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -174,7 +180,7 @@ export default function CodeEditor({
       <div className="flex items-center gap-3">
         <Button
           onClick={runCode}
-          disabled={isRunning || !code.trim()}
+          disabled={isRunning || isSubmitting || !code.trim()}
           className="flex items-center gap-2"
         >
           {isRunning ? (
@@ -187,11 +193,15 @@ export default function CodeEditor({
         <Button
           variant="outline"
           onClick={handleSubmit}
-          disabled={!code.trim()}
+          disabled={isRunning || isSubmitting || !code.trim()}
           className="flex items-center gap-2"
         >
-          <Terminal className="h-4 w-4" />
-          Submit Solution
+          {isSubmitting ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Terminal className="h-4 w-4" />
+          )}
+          {isSubmitting ? "Submitting..." : "Submit Solution"}
         </Button>
       </div>
       {consoleOutput && (

@@ -124,13 +124,19 @@ export async function POST(request: NextRequest) {
                 // Use the full text as description
                 const description = text.trim();
                 
-                // Determine difficulty based on content analysis
-                let difficulty: 'EASY' | 'MEDIUM' | 'HARD' = 'MEDIUM';
+                // Use the requested difficulty level, or determine based on content analysis if not specified
+                let difficulty: 'EASY' | 'MEDIUM' | 'HARD' = difficultyLevel || 'MEDIUM';
+                
+                // Get lowercase text for analysis
                 const lowerText = text.toLowerCase();
-                if (lowerText.includes('simple') || lowerText.includes('basic') || lowerText.includes('easy')) {
-                    difficulty = 'EASY';
-                } else if (lowerText.includes('complex') || lowerText.includes('advanced') || lowerText.includes('hard')) {
-                    difficulty = 'HARD';
+                
+                // Only analyze content for difficulty if no specific difficulty was requested
+                if (!difficultyLevel) {
+                    if (lowerText.includes('simple') || lowerText.includes('basic') || lowerText.includes('easy')) {
+                        difficulty = 'EASY';
+                    } else if (lowerText.includes('complex') || lowerText.includes('advanced') || lowerText.includes('hard')) {
+                        difficulty = 'HARD';
+                    }
                 }
                 
                 // Extract tags based on category and content

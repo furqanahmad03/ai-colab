@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Footer } from "../components/Footer";
+import { Footer } from "../../components/Footer";
 import {
   Card,
   CardHeader,
@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   CheckCircle,
   AlertTriangle,
@@ -22,9 +23,10 @@ import {
   Home,
   Eye,
   Loader2,
+  ArrowLeft,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { AuthenticatedNavbar } from "../components/AuthenticatedNavbar";
+import { AuthenticatedNavbar } from "../../components/AuthenticatedNavbar";
 
 type SubmissionStatus = "PASS" | "FAIL" | "PENDING" | "ERROR";
 
@@ -67,14 +69,22 @@ interface SubmissionResult {
   challengeId: string;
 }
 
-export default function SubmissionPage() {
+export default function SubmissionDetailPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const submissionId = searchParams.get("id");
+  const params = useParams();
+  const { data: session, status } = useSession();
+  const submissionId = params.id as string;
 
   const [submission, setSubmission] = useState<SubmissionResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
 
   useEffect(() => {
     const fetchSubmission = async () => {
@@ -84,17 +94,26 @@ export default function SubmissionPage() {
         return;
       }
 
+      // Check if user is authenticated
+      if (!session?.user?.id) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         console.log("🔍 Fetching submission with ID:", submissionId);
 
         const response = await fetch(
-          `/api/submissions/${submissionId}?type=submission`
+          `/api/submissions/${submissionId}?type=submission&userId=${session.user.id}`
         );
 
         if (!response.ok) {
           if (response.status === 404) {
             setError("Submission not found");
+          } else if (response.status === 403) {
+            setError("Access denied - This submission doesn't belong to you");
           } else {
             setError("Failed to fetch submission");
           }
@@ -103,6 +122,13 @@ export default function SubmissionPage() {
 
         const data = await response.json();
         console.log("📥 Submission data received:", data);
+
+        // Check if the submission belongs to the current user
+        if (data.submission.userId !== session.user.id) {
+          setError("Access denied - This submission doesn't belong to you");
+          setLoading(false);
+          return;
+        }
 
         // Transform API data to match component expectations
         const transformedSubmission = transformApiSubmission(data.submission);
@@ -116,7 +142,7 @@ export default function SubmissionPage() {
     };
 
     fetchSubmission();
-  }, [submissionId]);
+  }, [submissionId, session?.user?.id]);
 
   const transformApiSubmission = (
     apiSubmission: ApiSubmission
@@ -276,6 +302,17 @@ export default function SubmissionPage() {
         <div className="w-full max-w-4xl space-y-8">
           {/* Header */}
           <div className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/submissions")}
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Submissions
+              </Button>
+            </div>
             <h1 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-lg">
               Submission <span className="text-emerald-400">Results</span>
             </h1>
@@ -469,4 +506,4 @@ export default function SubmissionPage() {
       <Footer />
     </>
   );
-}
+} 

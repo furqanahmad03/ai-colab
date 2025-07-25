@@ -225,29 +225,79 @@ export async function GET(request: NextRequest) {
         });
 
         // Create the daily challenge record
-        newDailyChallenge = await prisma.dailyChallenge.create({
-          data: {
-            challengeId: newChallenge.id,
-            date: today,
-          },
-          include: {
-            challenge: {
-              include: {
-                createdBy: {
-                  select: {
-                    name: true,
-                    email: true,
+        try {
+          newDailyChallenge = await prisma.dailyChallenge.create({
+            data: {
+              challengeId: newChallenge.id,
+              date: today,
+            },
+            include: {
+              challenge: {
+                include: {
+                  createdBy: {
+                    select: {
+                      name: true,
+                      email: true,
+                    },
                   },
-                },
-                _count: {
-                  select: {
-                    submissions: true,
+                  _count: {
+                    select: {
+                      submissions: true,
+                    },
                   },
                 },
               },
             },
-          },
-        });
+          });
+        } catch (createError: any) {
+          // If it's a unique constraint violation, it means another request already created today's challenge
+          if (createError.code === 'P2002') {
+            console.log('Daily challenge already exists for today, fetching existing one...');
+            
+            // Delete the challenge we just created since we can't link it to daily challenge
+            await prisma.challenge.delete({
+              where: { id: newChallenge.id }
+            });
+            
+            // Fetch the existing daily challenge
+            const existingDailyChallenge = await prisma.dailyChallenge.findFirst({
+              where: {
+                date: {
+                  gte: today,
+                  lt: tomorrow,
+                },
+              },
+              include: {
+                challenge: {
+                  include: {
+                    createdBy: {
+                      select: {
+                        name: true,
+                        email: true,
+                      },
+                    },
+                    _count: {
+                      select: {
+                        submissions: true,
+                      },
+                    },
+                  },
+                },
+              },
+            });
+            
+            if (existingDailyChallenge) {
+              return NextResponse.json({
+                dailyChallenge: existingDailyChallenge.challenge,
+                date: today.toISOString().split('T')[0],
+                message: 'Returning existing daily challenge for today'
+              });
+            }
+          }
+          
+          // Re-throw other errors
+          throw createError;
+        }
 
         console.log('Generated new daily challenge:', newDailyChallenge.challenge.title);
         break; // Successfully created, exit the loop

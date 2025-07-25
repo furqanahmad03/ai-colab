@@ -38,6 +38,109 @@ interface ApiChallenge {
   };
 }
 
+// Skeleton Components
+const StatsCardSkeleton = () => (
+  <div className="bg-gray-900 rounded-xl p-6 animate-pulse">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <div className="h-4 bg-gray-800 rounded w-24 mb-2"></div>
+        <div className="h-8 bg-gray-800 rounded w-16"></div>
+      </div>
+      <div className="h-8 w-8 bg-gray-800 rounded"></div>
+    </div>
+  </div>
+);
+
+const TodayChallengeSkeleton = () => (
+  <div className="bg-gray-900 rounded-xl shadow-xl animate-pulse">
+    <div className="p-6 border-b border-gray-800">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 bg-gray-800 rounded-lg"></div>
+          <div>
+            <div className="h-6 bg-gray-800 rounded w-48 mb-2"></div>
+            <div className="h-4 bg-gray-800 rounded w-24"></div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <div className="h-6 bg-gray-800 rounded w-8 mb-1"></div>
+            <div className="h-3 bg-gray-800 rounded w-16"></div>
+          </div>
+          <div className="h-6 bg-gray-800 rounded w-16"></div>
+          <div className="h-9 bg-gray-800 rounded w-20"></div>
+        </div>
+      </div>
+    </div>
+    <div className="p-6">
+      <div className="h-4 bg-gray-800 rounded w-full mb-2"></div>
+      <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
+      <div className="h-4 bg-gray-800 rounded w-1/2 mb-4"></div>
+      <div className="flex gap-2">
+        <div className="h-6 bg-gray-800 rounded w-16"></div>
+        <div className="h-6 bg-gray-800 rounded w-20"></div>
+        <div className="h-6 bg-gray-800 rounded w-14"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const ProblemsTableSkeleton = () => (
+  <div className="bg-gray-900 rounded-xl shadow-xl animate-pulse">
+    <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+      <div className="h-8 bg-gray-800 rounded w-32"></div>
+      <div className="h-9 bg-gray-800 rounded w-20"></div>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-gray-800">
+            <th className="text-left py-4 px-6">
+              <div className="h-4 bg-gray-800 rounded w-16"></div>
+            </th>
+            <th className="text-left py-4 px-6">
+              <div className="h-4 bg-gray-800 rounded w-20"></div>
+            </th>
+            <th className="text-left py-4 px-6">
+              <div className="h-4 bg-gray-800 rounded w-24"></div>
+            </th>
+            <th className="text-left py-4 px-6">
+              <div className="h-4 bg-gray-800 rounded w-16"></div>
+            </th>
+            <th className="text-left py-4 px-6">
+              <div className="h-4 bg-gray-800 rounded w-20"></div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {[1, 2, 3].map((i) => (
+            <tr key={i} className="border-b border-gray-800">
+              <td className="py-5 px-6">
+                <div className="flex items-center">
+                  <div className="h-4 w-4 bg-gray-800 rounded mr-2"></div>
+                  <div className="h-4 bg-gray-800 rounded w-16"></div>
+                </div>
+              </td>
+              <td className="py-5 px-6">
+                <div className="h-4 bg-gray-800 rounded w-32"></div>
+              </td>
+              <td className="py-5 px-6">
+                <div className="h-4 bg-gray-800 rounded w-16"></div>
+              </td>
+              <td className="py-5 px-6">
+                <div className="h-4 bg-gray-800 rounded w-8"></div>
+              </td>
+              <td className="py-5 px-6">
+                <div className="h-6 bg-gray-800 rounded w-12"></div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
 export default function DashboardPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
   const [numberOfProblems, setNumberOfProblems] = useState("1");
@@ -55,6 +158,13 @@ export default function DashboardPage() {
   const [isLoadingTodayChallenge, setIsLoadingTodayChallenge] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Create user object from session
+  const user = {
+    name: session?.user?.name || 'User',
+    avatar: session?.user?.name?.charAt(0)?.toUpperCase() || 'U',
+    email: session?.user?.email || ''
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -255,11 +365,7 @@ export default function DashboardPage() {
     return null;
   }
 
-  const user = {
-    name: session.user?.name || session.user?.email || "User",
-    username: session.user?.email || "user",
-    avatar: session.user?.name ? session.user.name.substring(0, 2).toUpperCase() : "U",
-  };
+
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -455,51 +561,61 @@ export default function DashboardPage() {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                  Problems Solved
-                </p>
-                <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {userStats.problemsSolved}
-                </p>
+          {isLoadingProblems ? (
+            <>
+              <StatsCardSkeleton />
+              <StatsCardSkeleton />
+              <StatsCardSkeleton />
+            </>
+          ) : (
+            <>
+              <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                      Problems Solved
+                    </p>
+                    <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
+                      {userStats.problemsSolved}
+                    </p>
+                  </div>
+                  <div className="text-emerald-400 text-3xl group-hover:scale-110 transition-transform duration-200">
+                    ✅
+                  </div>
+                </div>
               </div>
-              <div className="text-emerald-400 text-3xl group-hover:scale-110 transition-transform duration-200">
-                ✅
+              <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                      Points
+                    </p>
+                    <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
+                      {userStats.totalPoints}
+                    </p>
+                  </div>
+                  <div className="text-emerald-400 text-3xl group-hover:scale-110 transition-transform duration-200">
+                    ⭐
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                  Points
-                </p>
-                <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {userStats.totalPoints}
-                </p>
+              <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                      Rank
+                    </p>
+                    <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
+                      {userStats.rank}
+                    </p>
+                  </div>
+                  <div className="text-yellow-400 text-3xl group-hover:scale-110 transition-transform duration-200">
+                    🏆
+                  </div>
+                </div>
               </div>
-              <div className="text-emerald-400 text-3xl group-hover:scale-110 transition-transform duration-200">
-                ⭐
-              </div>
-            </div>
-          </div>
-          <div className="bg-gray-900 rounded-xl p-6 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
-                  Rank
-                </p>
-                <p className="text-3xl font-bold text-white mt-2 group-hover:text-emerald-400 transition-colors duration-200">
-                  {userStats.rank}
-                </p>
-              </div>
-              <div className="text-yellow-400 text-3xl group-hover:scale-110 transition-transform duration-200">
-                🏆
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
 
         {/* Difficulty Selection */}
@@ -558,7 +674,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Today's Challenge */}
-        {todayChallenge && (
+        {isLoadingTodayChallenge ? (
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">
+              Today's Challenge
+            </h2>
+            <TodayChallengeSkeleton />
+          </div>
+        ) : todayChallenge ? (
           <div className="mb-10">
             <h2 className="text-2xl font-bold text-white mb-6 tracking-tight">
               Today's Challenge
@@ -623,110 +746,124 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Problems List */}
-        <div className="bg-gray-900 rounded-xl shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
-          <div className="p-6 border-b border-gray-800 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              Recent Problems
-            </h2>
-            <Button
-              onClick={handleSeeAllProblems}
-              variant="outline"
-              className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
-            >
-              See All
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+        {isLoadingProblems ? (
+          <div className="mb-10">
+            <div className="bg-gray-900 rounded-xl shadow-xl">
+              <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white tracking-tight">
+                  Recent Problems
+                </h2>
+              </div>
+            </div>
+            <ProblemsTableSkeleton />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800 text-gray-400 text-sm">
-                  <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
-                    Problem
-                  </th>
-                  <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
-                    Difficulty
-                  </th>
-                  <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
-                    Points
-                  </th>
-                  <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
-                    Category
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {isLoadingProblems ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 px-6 text-center text-gray-400">
-                      Loading problems...
-                    </td>
-                  </tr>
-                ) : userProblems.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 px-6 text-center text-gray-400">
-                      No problems created yet. Generate your first problem above!
-                    </td>
-                  </tr>
-                ) : (
-                  userProblems.map((problem) => {
-                    const status = getStatusDisplay(problem);
-                    const category = getCategory(problem);
-                    const points = getPoints(problem);
-                    
-                    return (
-                      <tr
-                        key={problem.id}
-                        className="border-b border-gray-800 hover:bg-gray-800/50 hover:shadow-lg transition-all duration-200 cursor-pointer group"
-                        onClick={() => router.push(`/problems/${problem.id}`)}
-                      >
-                        <td className="py-5 px-6">
-                          <div className="flex items-center">
-                            {status.icon}
-                            <span className="ml-2 text-sm font-medium text-gray-300">
-                              {status.status}
+        ) : (
+          <div className="bg-gray-900 rounded-xl shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
+            <div className="p-6 border-b border-gray-800 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white tracking-tight">
+                Recent Problems
+              </h2>
+              <Button
+                onClick={handleSeeAllProblems}
+                variant="outline"
+                className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+              >
+                See All
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              {userProblems.length === 0 ? (
+                <div className="py-12 px-6 text-center">
+                  <div className="text-gray-400 text-lg mb-2">No problems created yet</div>
+                  <p className="text-gray-500 text-sm mb-4">
+                    Generate your first problem using the form above to get started!
+                  </p>
+                  <Button
+                    onClick={() => document.getElementById('difficulty')?.focus()}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Generate Problem
+                  </Button>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-gray-400 text-sm">
+                      <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
+                        Problem
+                      </th>
+                      <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
+                        Difficulty
+                      </th>
+                      <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
+                        Points
+                      </th>
+                      <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
+                        Category
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userProblems.map((problem) => {
+                      const status = getStatusDisplay(problem);
+                      const category = getCategory(problem);
+                      const points = getPoints(problem);
+                      
+                      return (
+                        <tr
+                          key={problem.id}
+                          className="border-b border-gray-800 hover:bg-gray-800/50 hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                          onClick={() => router.push(`/problems/${problem.id}`)}
+                        >
+                          <td className="py-5 px-6">
+                            <div className="flex items-center">
+                              {status.icon}
+                              <span className="ml-2 text-sm font-medium text-gray-300">
+                                {status.status}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-5 px-6">
+                            <span className="text-white font-semibold hover:text-emerald-400 transition-colors duration-200">
+                              {problem.title}
                             </span>
-                          </div>
-                        </td>
-                        <td className="py-5 px-6">
-                          <span className="text-white font-semibold hover:text-emerald-400 transition-colors duration-200">
-                            {problem.title}
-                          </span>
-                        </td>
-                        <td className="py-5 px-6">
-                          <span
-                            className={`font-semibold ${getDifficultyColor(
-                              problem.difficulty
-                            )}`}
-                          >
-                            {problem.difficulty}
-                          </span>
-                        </td>
-                        <td className="py-5 px-6 text-gray-300 font-medium">
-                          {points}
-                        </td>
-                        <td className="py-5 px-6">
-                          <Badge
-                            variant="outline"
-                            className="border-gray-700 text-gray-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-all duration-200"
-                          >
-                            {category}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          </td>
+                          <td className="py-5 px-6">
+                            <span
+                              className={`font-semibold ${getDifficultyColor(
+                                problem.difficulty
+                              )}`}
+                            >
+                              {problem.difficulty}
+                            </span>
+                          </td>
+                          <td className="py-5 px-6 text-gray-300 font-medium">
+                            {points}
+                          </td>
+                          <td className="py-5 px-6">
+                            <Badge
+                              variant="outline"
+                              className="border-gray-700 text-gray-300 group-hover:border-emerald-500/50 group-hover:text-emerald-400 transition-all duration-200"
+                            >
+                              {category}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </main>
       <Footer />
     </div>

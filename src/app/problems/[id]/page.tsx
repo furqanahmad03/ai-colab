@@ -342,26 +342,42 @@ export default function ProblemPage() {
   const router = useRouter();
   const params = useParams();
   const problemId = params.id as string;
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const [problem, setProblem] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>(null);
 
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
   useEffect(() => {
     const fetchChallenge = async () => {
+      // Check if user is authenticated
+      if (!session?.user?.id) {
+        setError("Authentication required");
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
         console.log("🚀 Fetching challenge with ID:", problemId);
 
-        const response = await fetch(`/api/challenges/${problemId}`);
+        const response = await fetch(`/api/challenges/${problemId}?userId=${session.user.id}`);
 
         if (!response.ok) {
           if (response.status === 404) {
             setError("Challenge not found");
+          } else if (response.status === 403) {
+            setError("Access denied - You don't have permission to view this challenge");
           } else {
             setError("Failed to fetch challenge");
           }
@@ -387,10 +403,10 @@ export default function ProblemPage() {
       }
     };
 
-    if (problemId) {
+    if (problemId && session?.user?.id) {
       fetchChallenge();
     }
-  }, [problemId]);
+  }, [problemId, session?.user?.id]);
 
   // Debug function to show processed content
   const showDebugInfo = () => {
@@ -738,7 +754,7 @@ export default function ProblemPage() {
                   console.log("✅ Submission result:", result);
 
                   // Navigate to submission page with the submission ID
-                  router.push(`/submission?id=${result.submission.id}`);
+                  router.push(`/submissions/${result.submission.id}`);
                 } catch (error) {
                   console.error("💥 Error submitting solution:", error);
                   // TODO: Show error toast/notification to user

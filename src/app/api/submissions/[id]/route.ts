@@ -307,7 +307,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id: challengeId } = params;
+    const { id: challengeId } = await params;
     console.log("🚀 Starting submission process for challenge:", challengeId);
 
     let body: SubmissionRequest;
@@ -430,9 +430,10 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type"); // 'submission' or 'challenge'
+    const userId = searchParams.get("userId"); // Get userId from query params
 
     console.log("🔍 GET request for ID:", id, "Type:", type);
 
@@ -467,6 +468,18 @@ export async function GET(
         return NextResponse.json(
           { error: "Submission not found" },
           { status: 404 }
+        );
+      }
+
+      // Check if the submission belongs to the requesting user
+      if (userId && submission.userId !== userId) {
+        console.log("❌ Access denied - Submission doesn't belong to user:", {
+          submissionUserId: submission.userId,
+          requestingUserId: userId,
+        });
+        return NextResponse.json(
+          { error: "Access denied - This submission doesn't belong to you" },
+          { status: 403 }
         );
       }
 

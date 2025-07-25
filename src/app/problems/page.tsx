@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -250,13 +250,24 @@ export default function ProblemsPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-3">
-                <Trophy className="h-6 w-6 text-yellow-500" />
-                <div className="text-sm">
-                  <div className="text-foreground font-semibold">
-                    {solvedCount}/{challenges.length} Solved
-                  </div>
-                  <div className="text-muted-foreground">
-                    {challenges.length > 0 ? `${Math.round((solvedCount / challenges.length) * 100)}% Complete` : "No challenges yet"}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/submissions")}
+                  className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white flex items-center gap-2"
+                >
+                  <List className="h-4 w-4" />
+                  View All Submissions
+                </Button>
+                <div className="flex items-center space-x-3">
+                  <Trophy className="h-6 w-6 text-yellow-500" />
+                  <div className="text-sm">
+                    <div className="text-foreground font-semibold">
+                      {solvedCount}/{challenges.length} Solved
+                    </div>
+                    <div className="text-muted-foreground">
+                      {challenges.length > 0 ? `${Math.round((solvedCount / challenges.length) * 100)}% Complete` : "No challenges yet"}
+                    </div>
                   </div>
                 </div>
               </div>
