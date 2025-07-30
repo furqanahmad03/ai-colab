@@ -7,7 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Icons } from "@/components/ui/icons";
 import { Footer } from "../components/Footer";
-import { ArrowRight, CheckCircle2, XCircle, AlertTriangle, Clock, Circle } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  Circle,
+} from "lucide-react";
+import { toast } from "sonner";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
 type Result = "PENDING" | "PASS" | "FAIL" | "ERROR";
@@ -143,7 +151,7 @@ const ProblemsTableSkeleton = () => (
 
 export default function DashboardPage() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("");
-  const [numberOfProblems, setNumberOfProblems] = useState("1");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [userProblems, setUserProblems] = useState<ApiChallenge[]>([]);
   const [isLoadingProblems, setIsLoadingProblems] = useState(false);
@@ -151,18 +159,20 @@ export default function DashboardPage() {
   const [userStats, setUserStats] = useState({
     problemsSolved: 0,
     totalPoints: 0,
-    rank: "Bronze"
+    rank: "Bronze",
   });
-  const [todayChallenge, setTodayChallenge] = useState<ApiChallenge | null>(null);
+  const [todayChallenge, setTodayChallenge] = useState<ApiChallenge | null>(
+    null
+  );
   const [isLoadingTodayChallenge, setIsLoadingTodayChallenge] = useState(false);
   const { data: session, status } = useSession();
   const router = useRouter();
 
   // Create user object from session
   const user = {
-    name: session?.user?.name || 'User',
-    avatar: session?.user?.name?.charAt(0)?.toUpperCase() || 'U',
-    email: session?.user?.email || ''
+    name: session?.user?.name || "User",
+    avatar: session?.user?.name?.charAt(0)?.toUpperCase() || "U",
+    email: session?.user?.email || "",
   };
 
   // Redirect if not authenticated
@@ -183,21 +193,21 @@ export default function DashboardPage() {
 
   const fetchUserProblems = useCallback(async () => {
     if (!session?.user?.id || hasFetchedProblems || isLoadingProblems) return;
-    
+
     try {
       setIsLoadingProblems(true);
       setHasFetchedProblems(true);
-      
+
       const response = await fetch(`/api/challenges?userId=${session.user.id}`);
       const data = await response.json();
 
       if (response.ok) {
         // Take only the latest 5 problems
         setUserProblems((data.challenges || []).slice(0, 5));
-        
+
         // Calculate user stats from created problems
         calculateUserStats(data.challenges || []);
-        
+
         // Also fetch all user submissions for complete stats
         fetchUserSubmissions();
       } else {
@@ -212,13 +222,15 @@ export default function DashboardPage() {
 
   const fetchUserSubmissions = async () => {
     if (!session?.user?.id) return;
-    
+
     try {
-      const response = await fetch(`/api/submissions?userId=${session.user.id}`);
+      const response = await fetch(
+        `/api/submissions?userId=${session.user.id}`
+      );
       const data = await response.json();
 
       if (response.ok) {
-        console.log('All user submissions:', data.submissions);
+        console.log("All user submissions:", data.submissions);
         calculateCompleteUserStats(data.submissions || []);
       } else {
         console.error("Failed to fetch user submissions:", data.error);
@@ -228,26 +240,36 @@ export default function DashboardPage() {
     }
   };
 
-  const calculateCompleteUserStats = (submissions: Array<{
-    score: number | null;
-    result: string;
-    challengeId: string;
-  }>) => {
+  const calculateCompleteUserStats = (
+    submissions: Array<{
+      score: number | null;
+      result: string;
+      challengeId: string;
+    }>
+  ) => {
     let problemsSolved = 0;
     let totalPoints = 0;
     const solvedProblemIds = new Set();
 
-    console.log('Calculating complete stats from submissions:', submissions.length);
+    console.log(
+      "Calculating complete stats from submissions:",
+      submissions.length
+    );
 
-    submissions.forEach(submission => {
-      console.log('Processing submission:', submission);
-      
+    submissions.forEach((submission) => {
+      console.log("Processing submission:", submission);
+
       // Sum up ALL submissions and their scores
       if (submission.score !== null && submission.score !== undefined) {
         totalPoints += submission.score;
-        console.log('Added points from submission:', submission.score, 'total now:', totalPoints);
+        console.log(
+          "Added points from submission:",
+          submission.score,
+          "total now:",
+          totalPoints
+        );
       }
-      
+
       // Count problems solved (only PASS submissions count as solved)
       if (submission.result === "PASS") {
         if (!solvedProblemIds.has(submission.challengeId)) {
@@ -257,7 +279,12 @@ export default function DashboardPage() {
       }
     });
 
-    console.log('Complete stats - problemsSolved:', problemsSolved, 'totalPoints:', totalPoints);
+    console.log(
+      "Complete stats - problemsSolved:",
+      problemsSolved,
+      "totalPoints:",
+      totalPoints
+    );
 
     // Determine rank based on total points
     let rank = "Bronze";
@@ -274,7 +301,7 @@ export default function DashboardPage() {
     setUserStats({
       problemsSolved,
       totalPoints,
-      rank
+      rank,
     });
   };
 
@@ -282,29 +309,34 @@ export default function DashboardPage() {
     let problemsSolved = 0;
     let totalPoints = 0;
 
-    console.log('Calculating stats for challenges:', challenges.length);
-    console.log('Challenges data:', challenges);
+    console.log("Calculating stats for challenges:", challenges.length);
+    console.log("Challenges data:", challenges);
 
-    challenges.forEach(challenge => {
-      console.log('Processing challenge:', challenge.title);
-      console.log('Submissions:', challenge.submissions);
-      
+    challenges.forEach((challenge) => {
+      console.log("Processing challenge:", challenge.title);
+      console.log("Submissions:", challenge.submissions);
+
       if (challenge.submissions.length > 0) {
         const latestSubmission = challenge.submissions[0];
-        console.log('Latest submission:', latestSubmission);
-        
+        console.log("Latest submission:", latestSubmission);
+
         if (latestSubmission.result === "PASS") {
           problemsSolved++;
-          console.log('Problem solved, score:', latestSubmission.score);
+          console.log("Problem solved, score:", latestSubmission.score);
           if (latestSubmission.score !== null) {
             totalPoints += latestSubmission.score;
-            console.log('Added points, total now:', totalPoints);
+            console.log("Added points, total now:", totalPoints);
           }
         }
       }
     });
 
-    console.log('Final stats - problemsSolved:', problemsSolved, 'totalPoints:', totalPoints);
+    console.log(
+      "Final stats - problemsSolved:",
+      problemsSolved,
+      "totalPoints:",
+      totalPoints
+    );
 
     // Determine rank based on total points
     let rank = "Bronze";
@@ -321,17 +353,17 @@ export default function DashboardPage() {
     setUserStats({
       problemsSolved,
       totalPoints,
-      rank
+      rank,
     });
   };
 
   const fetchTodayChallenge = useCallback(async () => {
     if (!session?.user?.id || isLoadingTodayChallenge) return;
-    
+
     try {
       setIsLoadingTodayChallenge(true);
-      
-      const response = await fetch('/api/daily-challanges');
+
+      const response = await fetch("/api/daily-challanges");
       const data = await response.json();
 
       if (response.ok && data.dailyChallenge) {
@@ -352,7 +384,13 @@ export default function DashboardPage() {
       fetchUserProblems();
       fetchTodayChallenge();
     }
-  }, [session?.user?.id, hasFetchedProblems, isLoadingProblems, fetchUserProblems, fetchTodayChallenge]);
+  }, [
+    session?.user?.id,
+    hasFetchedProblems,
+    isLoadingProblems,
+    fetchUserProblems,
+    fetchTodayChallenge,
+  ]);
 
   // Show loading while checking authentication
   if (status === "loading") {
@@ -367,8 +405,6 @@ export default function DashboardPage() {
   if (!session) {
     return null;
   }
-
-
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -390,12 +426,12 @@ export default function DashboardPage() {
         icon: <Circle className="h-5 w-5 text-gray-400" />,
         color: "text-gray-400",
         bgColor: "bg-gray-400/10",
-        badgeColor: "bg-gray-500 text-white"
+        badgeColor: "bg-gray-500 text-white",
       };
     }
 
     const latestSubmission = challenge.submissions[0];
-    
+
     switch (latestSubmission.result) {
       case "PASS":
         return {
@@ -403,7 +439,7 @@ export default function DashboardPage() {
           icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
           color: "text-emerald-500",
           bgColor: "bg-emerald-500/10",
-          badgeColor: "bg-green-500 text-white"
+          badgeColor: "bg-green-500 text-white",
         };
       case "FAIL":
         return {
@@ -411,7 +447,7 @@ export default function DashboardPage() {
           icon: <XCircle className="h-5 w-5 text-rose-500" />,
           color: "text-rose-500",
           bgColor: "bg-rose-500/10",
-          badgeColor: "bg-red-500 text-white"
+          badgeColor: "bg-red-500 text-white",
         };
       case "ERROR":
         return {
@@ -419,7 +455,7 @@ export default function DashboardPage() {
           icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
           color: "text-orange-500",
           bgColor: "bg-orange-500/10",
-          badgeColor: "bg-red-500 text-white"
+          badgeColor: "bg-red-500 text-white",
         };
       case "PENDING":
         return {
@@ -427,7 +463,7 @@ export default function DashboardPage() {
           icon: <Clock className="h-5 w-5 text-yellow-500" />,
           color: "text-yellow-500",
           bgColor: "bg-yellow-500/10",
-          badgeColor: "bg-yellow-500 text-white"
+          badgeColor: "bg-yellow-500 text-white",
         };
       default:
         return {
@@ -435,17 +471,23 @@ export default function DashboardPage() {
           icon: <Circle className="h-5 w-5 text-gray-400" />,
           color: "text-gray-400",
           bgColor: "bg-gray-400/10",
-          badgeColor: "bg-gray-500 text-white"
+          badgeColor: "bg-gray-500 text-white",
         };
     }
   };
 
   const getCategory = (challenge: ApiChallenge) => {
-    const tags = challenge.tags.map(tag => tag.toUpperCase());
-    
-    if (tags.some(tag => tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS"))) {
+    const tags = challenge.tags.map((tag) => tag.toUpperCase());
+
+    if (
+      tags.some(
+        (tag) => tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS")
+      )
+    ) {
       return "PF";
-    } else if (tags.some(tag => tag.includes("OOP") || tag.includes("OBJECT-ORIENTED"))) {
+    } else if (
+      tags.some((tag) => tag.includes("OOP") || tag.includes("OBJECT-ORIENTED"))
+    ) {
       return "OOP";
     } else {
       return "DSA";
@@ -456,17 +498,30 @@ export default function DashboardPage() {
     if (challenge.submissions.length === 0) {
       return 0;
     }
-    
+
     const latestSubmission = challenge.submissions[0];
     if (latestSubmission.result === "PASS" && latestSubmission.score !== null) {
       return latestSubmission.score;
     }
-    
+
     return 0;
   };
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validation: Check if difficulty is selected
+    if (!selectedDifficulty) {
+      toast.error("Please select a difficulty level (Easy, Medium, or Hard)");
+      return;
+    }
+
+    // Validation: Check if at least one category is selected
+    if (selectedCategories.length === 0) {
+      toast.error("Please select at least one category (PF, OOP, or DSA)");
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
@@ -477,8 +532,9 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({
           userId: session.user?.id,
-          numberOfChallenges: parseInt(numberOfProblems, 10),
-          difficultyLevel: selectedDifficulty || undefined,
+          numberOfChallenges: 1,
+          difficultyLevel: selectedDifficulty,
+          categories: selectedCategories,
         }),
       });
 
@@ -486,12 +542,15 @@ export default function DashboardPage() {
 
       if (response.ok) {
         console.log(data.generatedChallenges);
+        toast.success("Problem generated successfully!");
         router.push("/problems");
       } else {
         console.error("Failed to generate challenges:", data.error);
+        toast.error("Failed to generate problem. Please try again.");
       }
     } catch (error) {
       console.error("Error generating challenges:", error);
+      toast.error("An error occurred while generating the problem.");
     } finally {
       setIsGenerating(false);
     }
@@ -518,14 +577,18 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="ml-4">
-                <h1 className="text-white font-semibold text-lg">AI Code Lab</h1>
+                <h1 className="text-white font-semibold text-lg">
+                  AI Code Lab
+                </h1>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
                 <div className="h-8 w-8 bg-emerald-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">{user.avatar}</span>
+                  <span className="text-white text-sm font-medium">
+                    {user.avatar}
+                  </span>
                 </div>
                 <div className="hidden md:block">
                   <p className="text-white text-sm font-medium">{user.name}</p>
@@ -629,7 +692,10 @@ export default function DashboardPage() {
             onSubmit={handleGenerate}
             className="flex flex-col sm:flex-row items-center gap-4 bg-gray-900 rounded-xl p-6 max-w-3xl"
           >
-            <label className="text-gray-300 font-medium mr-2" htmlFor="difficulty">
+            <label
+              className="text-gray-300 font-medium mr-2"
+              htmlFor="difficulty"
+            >
               Select Difficulty:
             </label>
             <select
@@ -643,24 +709,69 @@ export default function DashboardPage() {
               <option value="MEDIUM">Medium</option>
               <option value="HARD">Hard</option>
             </select>
-            <label className="text-gray-300 font-medium mr-2" htmlFor="numberOfProblems">
-              Number of Problems:
+            <label className="text-gray-300 font-medium mr-2">
+              Select Category:
             </label>
-            <select
-              id="numberOfProblems"
-              value={numberOfProblems}
-              onChange={(e) => setNumberOfProblems(e.target.value)}
-              className="bg-gray-800 text-white rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-            >
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  setSelectedCategories((prev) =>
+                    prev.includes("PF")
+                      ? prev.filter((cat) => cat !== "PF")
+                      : [...prev, "PF"]
+                  );
+                }}
+                className={`px-4 py-2 rounded-md border border-gray-600 transition-colors ${
+                  selectedCategories.includes("PF")
+                    ? "bg-emerald-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                PF
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setSelectedCategories((prev) =>
+                    prev.includes("OOP")
+                      ? prev.filter((cat) => cat !== "OOP")
+                      : [...prev, "OOP"]
+                  );
+                }}
+                className={`px-4 py-2 rounded-md border border-gray-600 transition-colors ${
+                  selectedCategories.includes("OOP")
+                    ? "bg-emerald-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                OOP
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setSelectedCategories((prev) =>
+                    prev.includes("DSA")
+                      ? prev.filter((cat) => cat !== "DSA")
+                      : [...prev, "DSA"]
+                  );
+                }}
+                className={`px-4 py-2 rounded-md border border-gray-600 transition-colors ${
+                  selectedCategories.includes("DSA")
+                    ? "bg-emerald-600 text-white"
+                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                }`}
+              >
+                DSA
+              </Button>
+            </div>
             <Button
               type="submit"
-              disabled={isGenerating}
+              disabled={
+                isGenerating ||
+                !selectedDifficulty ||
+                selectedCategories.length === 0
+              }
               className="ml-0 sm:ml-4 mt-2 sm:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? (
@@ -696,23 +807,31 @@ export default function DashboardPage() {
                       <span className="text-white text-lg font-bold">🎯</span>
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">{todayChallenge.title}</h3>
+                      <h3 className="text-xl font-bold text-white">
+                        {todayChallenge.title}
+                      </h3>
                       <p className="text-gray-400 text-sm">Daily Challenge</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-white">{todayChallenge._count?.submissions || 0}</div>
+                      <div className="text-2xl font-bold text-white">
+                        {todayChallenge._count?.submissions || 0}
+                      </div>
                       <div className="text-gray-400 text-sm">Submissions</div>
                     </div>
                     <Badge
                       variant="outline"
-                      className={`border font-medium ${getDifficultyColor(todayChallenge.difficulty)}`}
+                      className={`border font-medium ${getDifficultyColor(
+                        todayChallenge.difficulty
+                      )}`}
                     >
                       {todayChallenge.difficulty}
                     </Badge>
                     <Button
-                      onClick={() => router.push(`/problems/${todayChallenge.id}`)}
+                      onClick={() =>
+                        router.push(`/problems/${todayChallenge.id}`)
+                      }
                       className="bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                       Solve Now
@@ -722,8 +841,8 @@ export default function DashboardPage() {
               </div>
               <div className="p-6">
                 <p className="text-gray-300 line-clamp-3">
-                  {todayChallenge.description.length > 200 
-                    ? todayChallenge.description.substring(0, 200) + '...' 
+                  {todayChallenge.description.length > 200
+                    ? todayChallenge.description.substring(0, 200) + "..."
                     : todayChallenge.description}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-4">
@@ -780,12 +899,17 @@ export default function DashboardPage() {
             <div className="overflow-x-auto">
               {userProblems.length === 0 ? (
                 <div className="py-12 px-6 text-center">
-                  <div className="text-gray-400 text-lg mb-2">No problems created yet</div>
+                  <div className="text-gray-400 text-lg mb-2">
+                    No problems created yet
+                  </div>
                   <p className="text-gray-500 text-sm mb-4">
-                    Generate your first problem using the form above to get started!
+                    Generate your first problem using the form above to get
+                    started!
                   </p>
                   <Button
-                    onClick={() => document.getElementById('difficulty')?.focus()}
+                    onClick={() =>
+                      document.getElementById("difficulty")?.focus()
+                    }
                     className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     Generate Problem
@@ -817,7 +941,7 @@ export default function DashboardPage() {
                       const status = getStatusDisplay(problem);
                       const category = getCategory(problem);
                       const points = getPoints(problem);
-                      
+
                       return (
                         <tr
                           key={problem.id}
