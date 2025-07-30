@@ -251,7 +251,7 @@ async function getAIEvaluation(submission: {
   challenge: {
     id: string;
     title: string;
-    description: string;
+    description: any;
   };
 }) {
   if (!ai) {

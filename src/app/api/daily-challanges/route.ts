@@ -1,124 +1,147 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
+import { promptData } from '@/lib/prompts';
 
 const prisma = new PrismaClient();
-const ai = new GoogleGenAI({});
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+interface ChallengeDescription {
+  problemStatement: string;
+  inputFormat: string;
+  constraints: string;
+  outputFormat: string;
+  examples: Array<{
+    input: string;
+    output: string;
+    explanation: string;
+  }>;
+}
 
 interface GeneratedChallenge {
   title: string;
-  description: string;
+  description: ChallengeDescription;
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
   tags: string[];
 }
 
+interface AIResponse {
+  challenges: GeneratedChallenge[];
+}
+
 async function generateDailyChallenge(): Promise<GeneratedChallenge> {
-  const categories = ['Programming Fundamentals (PF)', 'Object-Oriented Programming (OOP)', 'Data Structures & Algorithms (DSA)'];
-  const randomCategory = categories[Math.floor(Math.random() * categories.length)];
   const difficulties = ['EASY', 'MEDIUM', 'HARD'];
   const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
 
-  const prompt = 
-    'Generate a unique daily coding challenge with the following specifications:\n' +
-    '- Category: ' + randomCategory + '\n' +
-    '- Difficulty: ' + randomDifficulty + '\n' +
-    '- Must be engaging and suitable for daily practice\n' +
-    '- Should be solvable in 15-30 minutes\n\n' +
-    'Return a clean, well-structured problem statement in plain text format (no markdown, no JSON, no special characters like * or `). The response should include:\n\n' +
-    '1. A clear problem title\n' +
-    '2. Detailed problem description with requirements\n' +
-    '3. Input format and constraints\n' +
-    '4. Output format\n' +
-    '5. Examples with input/output pairs\n' +
-    '6. Relevant programming concepts and tags\n\n' +
-    'Make sure the challenge is:\n' +
-    '- Focused on ' + randomCategory + ' concepts\n' +
-    '- Well-structured with clear requirements\n' +
-    '- Includes input/output examples\n' +
-    '- Has relevant programming concepts\n' +
-    '- Is engaging for daily practice\n' +
-    '- Written in clean, readable text that can be displayed directly in HTML';
-
-  const model = ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
+  // Get existing daily challenges to avoid duplicates
+  const existingDailyChallenges = await prisma.dailyChallenge.findMany({
+    include: {
+      challenge: true
+    }
   });
-  const response = await model;
-  const text = response.text || '';
 
-  if (!text) {
-    throw new Error('Empty response from Gemini');
+  const existingTitles = existingDailyChallenges.map(dc => dc.challenge.title);
+
+  // Prepare the prompt
+  const difficultyDesc = promptData.difficultyDescriptions[randomDifficulty as keyof typeof promptData.difficultyDescriptions];
+
+  const userPrompt = promptData.dailyChallengeUserPromptTemplate
+    .replace('{difficultyLevel}', difficultyDesc)
+    .replace('{existingChallenges}', JSON.stringify(existingTitles))
+    .replace('{alreadyGenerated}', JSON.stringify([]));
+
+  // Call OpenAI API
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: promptData.dailyChallengeSystemPrompt
+      },
+      {
+        role: "user",
+        content: userPrompt
+      }
+    ],
+    temperature: 0.7,
+    max_tokens: 3000,
+  });
+
+  const responseText = completion.choices[0]?.message?.content;
+  
+  if (!responseText) {
+    throw new Error('Empty response from OpenAI');
   }
 
-  // Process the plain text response directly
-  let challenge: GeneratedChallenge;
+  // Parse the JSON response
+  let aiResponse: AIResponse;
   try {
-    // Extract title from the first line or generate one
-    const lines = text.split('\n').filter(line => line.trim());
-    const title = lines[0]?.trim() || 'Generated Daily Challenge';
-    
-    // Use the full text as description
-    const description = text.trim();
-    
-    // Use the specified difficulty
-    const difficulty: 'EASY' | 'MEDIUM' | 'HARD' = randomDifficulty as 'EASY' | 'MEDIUM' | 'HARD';
-    
-    // Extract tags based on category and content
-    const tags: string[] = [];
-    if (randomCategory.includes('PF') || randomCategory.includes('Programming Fundamentals')) {
-      tags.push('Programming Fundamentals', 'Basic Concepts', 'Variables', 'Control Flow');
-    } else if (randomCategory.includes('OOP') || randomCategory.includes('Object-Oriented')) {
-      tags.push('Object-Oriented Programming', 'Classes', 'Inheritance', 'Polymorphism');
-    } else if (randomCategory.includes('DSA') || randomCategory.includes('Data Structures')) {
-      tags.push('Data Structures', 'Algorithms', 'Arrays', 'Sorting');
+    // Extract JSON from the response (in case there's extra text)
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
     }
     
-    // Add content-based tags
-    const lowerText = text.toLowerCase();
-    if (lowerText.includes('array')) tags.push('Arrays');
-    if (lowerText.includes('string')) tags.push('Strings');
-    if (lowerText.includes('tree')) tags.push('Trees');
-    if (lowerText.includes('graph')) tags.push('Graphs');
-    if (lowerText.includes('dynamic programming') || lowerText.includes('dp')) tags.push('Dynamic Programming');
-    if (lowerText.includes('recursion')) tags.push('Recursion');
-    if (lowerText.includes('sorting')) tags.push('Sorting');
-    if (lowerText.includes('searching')) tags.push('Searching');
-    
-    challenge = {
-      title,
-      description,
-      difficulty,
-      tags: [...new Set(tags)] // Remove duplicates
-    };
+    aiResponse = JSON.parse(jsonMatch[0]);
   } catch (parseError) {
-    console.log('Failed to process Gemini response:', text);
+    console.log('Failed to parse OpenAI response:', responseText);
     console.log('Parse error:', parseError);
-    throw new Error('Failed to process AI response');
+    throw new Error('Failed to parse AI response');
   }
 
+  if (!aiResponse.challenges || !Array.isArray(aiResponse.challenges) || aiResponse.challenges.length === 0) {
+    throw new Error('Invalid response structure');
+  }
+
+  const challenge = aiResponse.challenges[0];
+
+  // Validate challenge structure
   if (!challenge.title || !challenge.description || !challenge.difficulty || !challenge.tags) {
     throw new Error('Invalid challenge structure');
+  }
+
+  // Validate description structure
+  const desc = challenge.description;
+  if (!desc.problemStatement || !desc.inputFormat || !desc.constraints || !desc.outputFormat || !desc.examples) {
+    throw new Error('Invalid description structure');
+  }
+
+  // Validate difficulty
+  if (!['EASY', 'MEDIUM', 'HARD'].includes(challenge.difficulty)) {
+    challenge.difficulty = randomDifficulty as 'EASY' | 'MEDIUM' | 'HARD';
+  }
+
+  // Ensure daily challenge tags are included
+  if (!challenge.tags.includes('daily-practice')) {
+    challenge.tags.push('daily-practice');
+  }
+  if (!challenge.tags.includes('fundamentals')) {
+    challenge.tags.push('fundamentals');
   }
 
   return challenge;
 }
 
 async function getOrCreateSystemUser() {
-  // Try to find an existing admin user
+  // Try to find existing system user
   let systemUser = await prisma.user.findFirst({
     where: {
-      role: 'ADMIN'
-    }
+      email: 'system@daily-challenge.com',
+    },
   });
 
-  // If no admin user exists, create one
+  // If not found, create one
   if (!systemUser) {
     systemUser = await prisma.user.create({
       data: {
-        email: 'system@codewar.com',
-        name: 'System',
-        role: 'ADMIN'
-      }
+        email: 'system@daily-challenge.com',
+        name: 'Daily Challenge System',
+        role: 'ADMIN',
+      },
     });
   }
 
@@ -126,24 +149,19 @@ async function getOrCreateSystemUser() {
 }
 
 async function isChallengeDuplicate(title: string, description: string): Promise<boolean> {
-  // Check if a similar challenge already exists in DailyChallenge collection
   const existingDailyChallenges = await prisma.dailyChallenge.findMany({
     include: {
       challenge: true
     }
   });
 
-  return existingDailyChallenges.some((dailyChallenge: {
-    challenge: {
-      title: string;
-      description: string;
-    };
-  }) => {
+  return existingDailyChallenges.some((dailyChallenge) => {
     const challenge = dailyChallenge.challenge;
     const titleSimilarity = challenge.title.toLowerCase().includes(title.toLowerCase()) || 
                            title.toLowerCase().includes(challenge.title.toLowerCase());
-    const descriptionSimilarity = challenge.description.toLowerCase().includes(description.toLowerCase()) ||
-                                 description.toLowerCase().includes(challenge.description.toLowerCase());
+    const descriptionSimilarity = typeof challenge.description === 'string' && 
+                                 (challenge.description.toLowerCase().includes(description.toLowerCase()) ||
+                                 description.toLowerCase().includes(challenge.description.toLowerCase()));
     
     return titleSimilarity || descriptionSimilarity;
   });
@@ -159,79 +177,83 @@ export async function GET() {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Check if daily challenge exists for today
-    const existingDailyChallenge = await prisma.dailyChallenge.findFirst({
-      where: {
-        date: {
-          gte: today,
-          lt: tomorrow,
+    // Use a transaction to prevent race conditions
+    return await prisma.$transaction(async (tx) => {
+      // Check if daily challenge exists for today (within transaction)
+      const existingDailyChallenge = await tx.dailyChallenge.findFirst({
+        where: {
+          date: {
+            gte: today,
+            lt: tomorrow,
+          },
         },
-      },
-      include: {
-        challenge: {
-          include: {
-            createdBy: {
-              select: {
-                name: true,
-                email: true,
+        include: {
+          challenge: {
+            include: {
+              createdBy: {
+                select: {
+                  name: true,
+                  email: true,
+                },
               },
-            },
-            _count: {
-              select: {
-                submissions: true,
+              _count: {
+                select: {
+                  submissions: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    // If daily challenge exists for today, return it immediately
-    if (existingDailyChallenge) {
-      return NextResponse.json({
-        dailyChallenge: existingDailyChallenge.challenge,
-        date: today.toISOString().split('T')[0],
-        message: 'Returning existing daily challenge for today'
       });
-    }
 
-    // Get or create system user for daily challenges
-    const systemUser = await getOrCreateSystemUser();
-
-    // Generate a new daily challenge (regardless of whether one exists)
-    let newDailyChallenge: unknown = null;
-    let attempts = 0;
-    const maxAttempts = 5;
-
-    while (attempts < maxAttempts) {
-      attempts++;
-      
-      try {
-        const generatedChallenge = await generateDailyChallenge();
-        
-        // Check if this challenge is a duplicate
-        const isDuplicate = await isChallengeDuplicate(generatedChallenge.title, generatedChallenge.description);
-        
-        if (isDuplicate) {
-          console.log(`Attempt ${attempts}: Duplicate challenge detected, regenerating...`);
-          continue;
-        }
-
-        // Create the challenge first
-        const newChallenge = await prisma.challenge.create({
-          data: {
-            title: generatedChallenge.title,
-            description: generatedChallenge.description,
-            difficulty: generatedChallenge.difficulty,
-            tags: generatedChallenge.tags,
-            createdById: systemUser.id,
-            isDaily: true,
-          },
+      // If daily challenge exists for today, return it immediately
+      if (existingDailyChallenge) {
+        return NextResponse.json({
+          dailyChallenge: existingDailyChallenge.challenge,
+          date: today.toISOString().split('T')[0],
+          message: 'Returning existing daily challenge for today'
         });
+      }
 
-        // Create the daily challenge record
+      // Get or create system user for daily challenges
+      const systemUser = await getOrCreateSystemUser();
+
+      // Generate a new daily challenge
+      let newDailyChallenge: any = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (attempts < maxAttempts) {
+        attempts++;
+        
         try {
-          newDailyChallenge = await prisma.dailyChallenge.create({
+          const generatedChallenge = await generateDailyChallenge();
+          
+          // Check if this challenge is a duplicate (within transaction)
+          const isDuplicate = await isChallengeDuplicate(generatedChallenge.title, generatedChallenge.description.problemStatement);
+          
+          if (isDuplicate) {
+            console.log(`Attempt ${attempts}: Duplicate challenge detected, regenerating...`);
+            continue;
+          }
+
+          // Format description for database storage
+          const formattedDescription = `${generatedChallenge.description.problemStatement}\n\nInput Format:\n${generatedChallenge.description.inputFormat}\n\nConstraints:\n${generatedChallenge.description.constraints}\n\nOutput Format:\n${generatedChallenge.description.outputFormat}\n\nExamples:\n${generatedChallenge.description.examples.map((ex, i) => `Example ${i + 1}:\nInput: ${ex.input}\nOutput: ${ex.output}\nExplanation: ${ex.explanation}`).join('\n\n')}`;
+
+          // Create the challenge first (within transaction)
+          const newChallenge = await tx.challenge.create({
+            data: {
+              title: generatedChallenge.title,
+              description: formattedDescription,
+              difficulty: generatedChallenge.difficulty,
+              tags: generatedChallenge.tags,
+              createdById: systemUser.id,
+              isDaily: true,
+            },
+          });
+
+          // Create the daily challenge entry (within transaction)
+          newDailyChallenge = await tx.dailyChallenge.create({
             data: {
               challengeId: newChallenge.id,
               date: today,
@@ -254,18 +276,19 @@ export async function GET() {
               },
             },
           });
-        } catch (createError: unknown) {
-          // If it's a unique constraint violation, it means another request already created today's challenge
-          if ((createError as { code?: string }).code === 'P2002') {
-            console.log('Daily challenge already exists for today, fetching existing one...');
+
+          console.log(`✅ Daily challenge generated successfully on attempt ${attempts}`);
+          break;
+
+        } catch (error) {
+          console.error(`❌ Error on attempt ${attempts}:`, error);
+          
+          // Check if it's a unique constraint violation (race condition)
+          if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+            console.log('Race condition detected - another request created the daily challenge');
             
-            // Delete the challenge we just created since we can't link it to daily challenge
-            await prisma.challenge.delete({
-              where: { id: newChallenge.id }
-            });
-            
-            // Fetch the existing daily challenge
-            const existingDailyChallenge = await prisma.dailyChallenge.findFirst({
+            // Try to fetch the existing daily challenge
+            const existingChallenge = await tx.dailyChallenge.findFirst({
               where: {
                 date: {
                   gte: today,
@@ -290,60 +313,37 @@ export async function GET() {
                 },
               },
             });
-            
-            if (existingDailyChallenge) {
+
+            if (existingChallenge) {
               return NextResponse.json({
-                dailyChallenge: existingDailyChallenge.challenge,
+                dailyChallenge: existingChallenge.challenge,
                 date: today.toISOString().split('T')[0],
-                message: 'Returning existing daily challenge for today'
+                message: 'Daily challenge created by another request'
               });
             }
           }
           
-          // Re-throw other errors
-          throw createError;
-        }
-
-        console.log('Generated new daily challenge:', (newDailyChallenge as { challenge: { title: string } }).challenge.title);
-        break; // Successfully created, exit the loop
-        
-      } catch (error) {
-        console.error(`Error generating daily challenge (attempt ${attempts}):`, error);
-        
-        if (attempts === maxAttempts) {
-          return NextResponse.json(
-            { 
-              error: 'Failed to generate daily challenge after multiple attempts',
-              message: 'Unable to create daily challenge for today'
-            },
-            { status: 500 }
-          );
+          if (attempts === maxAttempts) {
+            throw new Error(`Failed to generate daily challenge after ${maxAttempts} attempts`);
+          }
         }
       }
-    }
 
-    // If we successfully created a new daily challenge
-    if (newDailyChallenge) {
+      if (!newDailyChallenge) {
+        throw new Error('Failed to generate daily challenge');
+      }
+
       return NextResponse.json({
-        dailyChallenge: (newDailyChallenge as { challenge: { title: string } }).challenge,
+        dailyChallenge: newDailyChallenge.challenge,
         date: today.toISOString().split('T')[0],
-        message: 'Generated new daily challenge for today'
+        message: 'New daily challenge generated successfully'
       });
-    }
-
-    // Final fallback: return error
-    return NextResponse.json(
-      { 
-        error: 'Failed to generate daily challenge',
-        message: 'Unable to provide daily challenge for today'
-      },
-      { status: 500 }
-    );
+    });
 
   } catch (error) {
-    console.error('Error in daily challenge API:', error);
+    console.error('Error in daily challenge generation:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to generate daily challenge' },
       { status: 500 }
     );
   }
