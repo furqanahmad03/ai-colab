@@ -169,18 +169,91 @@ async function isChallengeDuplicate(title: string, description: string): Promise
 
 export async function GET() {
   try {
-    // Get today's date at midnight (start of day)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    // Get tomorrow's date at midnight (end of day)
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Use a transaction to prevent race conditions
+    // First, check if daily challenge exists for today (outside transaction)
+    const existingDailyChallenge = await prisma.dailyChallenge.findFirst({
+      where: {
+        date: {
+          gte: today,
+          lt: tomorrow,
+        },
+      },
+      include: {
+        challenge: {
+          include: {
+            createdBy: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+            _count: {
+              select: {
+                submissions: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // If daily challenge exists for today, return it immediately
+    if (existingDailyChallenge) {
+      return NextResponse.json({
+        dailyChallenge: existingDailyChallenge.challenge,
+        date: today.toISOString().split('T')[0],
+        message: 'Returning existing daily challenge for today'
+      });
+    }
+
+    // Get or create system user for daily challenges (outside transaction)
+    const systemUser = await getOrCreateSystemUser();
+
+    // Generate a new daily challenge (outside transaction to avoid timeout)
+    let generatedChallenge: GeneratedChallenge | null = null;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts && !generatedChallenge) {
+      attempts++;
+      
+      try {
+        const challenge = await generateDailyChallenge();
+        
+        // Check if this challenge is a duplicate (outside transaction)
+        const isDuplicate = await isChallengeDuplicate(challenge.title, challenge.description.problemStatement);
+        
+        if (isDuplicate) {
+          console.log(`Attempt ${attempts}: Duplicate challenge detected, regenerating...`);
+          continue;
+        }
+
+        generatedChallenge = challenge;
+        console.log(`✅ Challenge generated successfully on attempt ${attempts}`);
+      } catch (error) {
+        console.error(`❌ Error generating challenge on attempt ${attempts}:`, error);
+        
+        if (attempts === maxAttempts) {
+          throw new Error(`Failed to generate daily challenge after ${maxAttempts} attempts`);
+        }
+      }
+    }
+
+    if (!generatedChallenge) {
+      throw new Error('Failed to generate daily challenge');
+    }
+
+    // Format description for database storage
+    const formattedDescription = `${generatedChallenge.description.problemStatement}\n\nInput Format:\n${generatedChallenge.description.inputFormat}\n\nConstraints:\n${generatedChallenge.description.constraints}\n\nOutput Format:\n${generatedChallenge.description.outputFormat}\n\nExamples:\n${generatedChallenge.description.examples.map((ex, i) => `Example ${i + 1}:\nInput: ${ex.input}\nOutput: ${ex.output}\nExplanation: ${ex.explanation}`).join('\n\n')}`;
+
+    // Now use a transaction only for database operations
     return await prisma.$transaction(async (tx) => {
-      // Check if daily challenge exists for today (within transaction)
-      const existingDailyChallenge = await tx.dailyChallenge.findFirst({
+      // Double-check that no daily challenge was created while we were generating
+      const existingChallenge = await tx.dailyChallenge.findFirst({
         where: {
           date: {
             gte: today,
@@ -206,138 +279,58 @@ export async function GET() {
         },
       });
 
-      // If daily challenge exists for today, return it immediately
-      if (existingDailyChallenge) {
+      if (existingChallenge) {
         return NextResponse.json({
-          dailyChallenge: existingDailyChallenge.challenge,
+          dailyChallenge: existingChallenge.challenge,
           date: today.toISOString().split('T')[0],
-          message: 'Returning existing daily challenge for today'
+          message: 'Daily challenge created by another request'
         });
       }
 
-      // Get or create system user for daily challenges
-      const systemUser = await getOrCreateSystemUser();
+      // Create the challenge first (within transaction)
+      const newChallenge = await tx.challenge.create({
+        data: {
+          title: generatedChallenge.title,
+          description: formattedDescription,
+          difficulty: generatedChallenge.difficulty,
+          tags: generatedChallenge.tags,
+          createdById: systemUser.id,
+          isDaily: true,
+        },
+      });
 
-      // Generate a new daily challenge
-      let newDailyChallenge: any = null;
-      let attempts = 0;
-      const maxAttempts = 5;
-
-      while (attempts < maxAttempts) {
-        attempts++;
-        
-        try {
-          const generatedChallenge = await generateDailyChallenge();
-          
-          // Check if this challenge is a duplicate (within transaction)
-          const isDuplicate = await isChallengeDuplicate(generatedChallenge.title, generatedChallenge.description.problemStatement);
-          
-          if (isDuplicate) {
-            console.log(`Attempt ${attempts}: Duplicate challenge detected, regenerating...`);
-            continue;
-          }
-
-          // Format description for database storage
-          const formattedDescription = `${generatedChallenge.description.problemStatement}\n\nInput Format:\n${generatedChallenge.description.inputFormat}\n\nConstraints:\n${generatedChallenge.description.constraints}\n\nOutput Format:\n${generatedChallenge.description.outputFormat}\n\nExamples:\n${generatedChallenge.description.examples.map((ex, i) => `Example ${i + 1}:\nInput: ${ex.input}\nOutput: ${ex.output}\nExplanation: ${ex.explanation}`).join('\n\n')}`;
-
-          // Create the challenge first (within transaction)
-          const newChallenge = await tx.challenge.create({
-            data: {
-              title: generatedChallenge.title,
-              description: formattedDescription,
-              difficulty: generatedChallenge.difficulty,
-              tags: generatedChallenge.tags,
-              createdById: systemUser.id,
-              isDaily: true,
-            },
-          });
-
-          // Create the daily challenge entry (within transaction)
-          newDailyChallenge = await tx.dailyChallenge.create({
-            data: {
-              challengeId: newChallenge.id,
-              date: today,
-            },
+      // Create the daily challenge entry (within transaction)
+      const newDailyChallenge = await tx.dailyChallenge.create({
+        data: {
+          challengeId: newChallenge.id,
+          date: today,
+        },
+        include: {
+          challenge: {
             include: {
-              challenge: {
-                include: {
-                  createdBy: {
-                    select: {
-                      name: true,
-                      email: true,
-                    },
-                  },
-                  _count: {
-                    select: {
-                      submissions: true,
-                    },
-                  },
+              createdBy: {
+                select: {
+                  name: true,
+                  email: true,
+                },
+              },
+              _count: {
+                select: {
+                  submissions: true,
                 },
               },
             },
-          });
-
-          console.log(`✅ Daily challenge generated successfully on attempt ${attempts}`);
-          break;
-
-        } catch (error) {
-          console.error(`❌ Error on attempt ${attempts}:`, error);
-          
-          // Check if it's a unique constraint violation (race condition)
-          if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-            console.log('Race condition detected - another request created the daily challenge');
-            
-            // Try to fetch the existing daily challenge
-            const existingChallenge = await tx.dailyChallenge.findFirst({
-              where: {
-                date: {
-                  gte: today,
-                  lt: tomorrow,
-                },
-              },
-              include: {
-                challenge: {
-                  include: {
-                    createdBy: {
-                      select: {
-                        name: true,
-                        email: true,
-                      },
-                    },
-                    _count: {
-                      select: {
-                        submissions: true,
-                      },
-                    },
-                  },
-                },
-              },
-            });
-
-            if (existingChallenge) {
-              return NextResponse.json({
-                dailyChallenge: existingChallenge.challenge,
-                date: today.toISOString().split('T')[0],
-                message: 'Daily challenge created by another request'
-              });
-            }
-          }
-          
-          if (attempts === maxAttempts) {
-            throw new Error(`Failed to generate daily challenge after ${maxAttempts} attempts`);
-          }
-        }
-      }
-
-      if (!newDailyChallenge) {
-        throw new Error('Failed to generate daily challenge');
-      }
+          },
+        },
+      });
 
       return NextResponse.json({
         dailyChallenge: newDailyChallenge.challenge,
         date: today.toISOString().split('T')[0],
         message: 'New daily challenge generated successfully'
       });
+    }, {
+      timeout: 10000 // 10 second timeout for database operations
     });
 
   } catch (error) {
