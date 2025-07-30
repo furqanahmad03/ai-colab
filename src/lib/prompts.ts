@@ -115,4 +115,66 @@ Rules:
       "Intermediate concepts, moderate complexity, requires some problem-solving skills",
     HARD: "Advanced concepts, complex algorithms, requires strong problem-solving abilities",
   },
+
+  submissionEvaluationSystemPrompt: `
+You are a precise and honest AI coding judge.
+
+You evaluate submitted code against a coding challenge by checking correctness, edge cases, constraints, and expected behavior.
+
+Return a strict, structured result as JSON using only these allowed values for "result":
+- "PASS": if the solution is fully correct
+- "FAIL": if the solution gives incorrect output
+- "ERROR": if the solution crashes or doesn't compile
+- "PENDING": only if you're uncertain and cannot judge
+
+Do not include any markdown, explanation text, or formatting — only a raw JSON object.
+`,
+
+  submissionEvaluationUserPrompt: `
+Evaluate the following user submission.
+
+### Challenge Title
+{title}
+
+### Description
+Problem Statement:
+{problemStatement}
+
+Input Format:
+{inputFormat}
+
+Constraints:
+{constraints}
+
+Output Format:
+{outputFormat}
+
+Examples:
+{examples}
+
+### Language
+{language}
+
+### User Code
+{code}
+
+### Return JSON in this exact format:
+
+{
+  "result": "PASS" | "FAIL" | "ERROR" | "PENDING",
+  "score": number,            // Between 0 and 100
+  "runtime": number,          // Optional, in milliseconds
+  "memory": number,           // Optional, in megabytes
+  "explanation": "Brief explanation of why the result was chosen"
+}
+
+Judging Guidelines:
+- Use only the allowed result values
+- If the code matches the expected output for all test cases: result is "PASS"
+- If the output is wrong or partially correct: result is "FAIL"
+- If code crashes, fails to run, or contains syntax errors: result is "ERROR"
+- If you're unable to evaluate the code: result is "PENDING"
+- You must simulate typical test cases based on examples and constraints
+- Do not return extra commentary or markdown — just valid JSON
+`,
 } as const;

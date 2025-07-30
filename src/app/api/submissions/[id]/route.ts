@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
+import { promptData } from "@/lib/prompts";
 
 const prisma = new PrismaClient();
 
-// Initialize Google AI with proper error handling
-let ai: GoogleGenAI | null = null;
-try {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  if (apiKey) {
-    ai = new GoogleGenAI({
-      apiKey: apiKey,
-    });
-  } else {
-    console.warn("⚠️ GOOGLE_API_KEY not found in environment variables");
-  }
-} catch (error) {
-  console.error("❌ Failed to initialize Google AI:", error);
-}
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 interface SubmissionRequest {
   userId: string;
@@ -25,9 +16,17 @@ interface SubmissionRequest {
   language: string;
 }
 
-async function evaluateSubmission(submissionId: string) {
+interface AIEvaluationResponse {
+  result: "PASS" | "FAIL" | "ERROR" | "PENDING";
+  score: number;
+  runtime?: number;
+  memory?: number;
+  explanation: string;
+}
+
+async function evaluateSubmission(submissionId: string): Promise<{ evaluation: AIEvaluationResponse; submission: any }> {
   try {
-    console.log("🤖 Starting evaluation for submission:", submissionId);
+    console.log("🤖 Starting AI evaluation for submission:", submissionId);
 
     const submission = await prisma.submission.findUnique({
       where: { id: submissionId },
@@ -41,33 +40,115 @@ async function evaluateSubmission(submissionId: string) {
       throw new Error("Submission not found");
     }
 
-    console.log(
-      "📝 Evaluating code:",
-      submission.code.substring(0, 100) + "..."
-    );
+    console.log("📝 Evaluating code for challenge:", submission.challenge.title);
 
-    // Smart code evaluation logic
-    let evaluation = evaluateCodeIntelligently(
-      submission.code,
-      submission.language,
-    );
+    // Parse challenge description to extract components
+    const description = submission.challenge.description;
+    const lines = description.split('\n');
+    
+    let problemStatement = '';
+    let inputFormat = '';
+    let constraints = '';
+    let outputFormat = '';
+    let examples = '';
 
-    // If AI is available, try to get a more detailed evaluation
-    if (ai) {
-      console.log("🤖 AI available, getting detailed evaluation...");
-      try {
-        const aiEvaluation = await getAIEvaluation(submission);
-        // Merge AI evaluation with smart evaluation
-        evaluation = { ...evaluation, ...aiEvaluation };
-        console.log("✅ AI evaluation successful:", aiEvaluation);
-      } catch (aiError) {
-        console.warn(
-          "⚠️ AI evaluation failed, using smart evaluation:",
-          aiError
-        );
+    let currentSection = '';
+    for (const line of lines) {
+      if (line.includes('Problem Statement:')) {
+        currentSection = 'problemStatement';
+        problemStatement = line.replace('Problem Statement:', '').trim();
+      } else if (line.includes('Input Format:')) {
+        currentSection = 'inputFormat';
+        inputFormat = line.replace('Input Format:', '').trim();
+      } else if (line.includes('Constraints:')) {
+        currentSection = 'constraints';
+        constraints = line.replace('Constraints:', '').trim();
+      } else if (line.includes('Output Format:')) {
+        currentSection = 'outputFormat';
+        outputFormat = line.replace('Output Format:', '').trim();
+      } else if (line.includes('Examples:')) {
+        currentSection = 'examples';
+        examples = line.replace('Examples:', '').trim();
+      } else if (line.trim() && currentSection) {
+        // Append to current section
+        switch (currentSection) {
+          case 'problemStatement':
+            problemStatement += '\n' + line.trim();
+            break;
+          case 'inputFormat':
+            inputFormat += '\n' + line.trim();
+            break;
+          case 'constraints':
+            constraints += '\n' + line.trim();
+            break;
+          case 'outputFormat':
+            outputFormat += '\n' + line.trim();
+            break;
+          case 'examples':
+            examples += '\n' + line.trim();
+            break;
+        }
       }
-    } else {
-      console.log("🧠 Using smart evaluation (no AI available)");
+    }
+
+    // Debug: Check if promptData is available
+    console.log("🔍 Debug - promptData keys:", Object.keys(promptData));
+    console.log("🔍 Debug - submissionEvaluationUserPrompt exists:", !!promptData.submissionEvaluationUserPrompt);
+    
+    if (!promptData.submissionEvaluationUserPrompt) {
+      throw new Error('submissionEvaluationUserPrompt not found in promptData');
+    }
+
+    // Create user prompt using the template
+    const userPrompt = promptData.submissionEvaluationUserPrompt
+      .replace('{title}', submission.challenge.title)
+      .replace('{problemStatement}', problemStatement)
+      .replace('{inputFormat}', inputFormat)
+      .replace('{constraints}', constraints)
+      .replace('{outputFormat}', outputFormat)
+      .replace('{examples}', examples)
+      .replace('{language}', submission.language)
+      .replace('{code}', submission.code);
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: promptData.submissionEvaluationSystemPrompt
+        },
+        {
+          role: "user",
+          content: userPrompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 500,
+    });
+
+    const responseText = completion.choices[0]?.message?.content;
+    
+    if (!responseText) {
+      throw new Error('Empty response from OpenAI');
+    }
+
+    // Parse the JSON response (should be clean JSON from our prompt)
+    let evaluation: AIEvaluationResponse;
+    try {
+      evaluation = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse OpenAI response:', responseText);
+      throw new Error('Failed to parse AI evaluation response');
+    }
+
+    // Validate the response structure
+    if (!evaluation.result || !['PASS', 'FAIL', 'ERROR', 'PENDING'].includes(evaluation.result)) {
+      throw new Error('Invalid result in AI response');
+    }
+
+    if (typeof evaluation.score !== 'number' || evaluation.score < 0 || evaluation.score > 100) {
+      throw new Error('Invalid score in AI response');
     }
 
     // Update submission with evaluation results
@@ -76,231 +157,18 @@ async function evaluateSubmission(submissionId: string) {
       data: {
         result: evaluation.result,
         score: evaluation.score,
-        runtime: evaluation.runtime,
-        memory: evaluation.memory,
+        runtime: evaluation.runtime || null,
+        memory: evaluation.memory || null,
       },
     });
 
+    console.log("✅ AI evaluation completed:", evaluation);
+
     return { evaluation, submission: updatedSubmission };
   } catch (error) {
-    console.error("💥 Error in evaluation:", error);
-    throw error instanceof Error
-      ? error
-      : new Error("Unknown evaluation error");
+    console.error("💥 Error in AI evaluation:", error);
+    throw error instanceof Error ? error : new Error("Unknown evaluation error");
   }
-}
-
-// Smart code evaluation without AI
-function evaluateCodeIntelligently(
-  code: string,
-  language: string,
-) {
-  console.log("🧠 Running smart code evaluation...");
-
-  const codeLines = code.trim().split("\n");
-  const codeLength = code.trim().length;
-
-  // Check for obvious failures
-  const isIncomplete = checkIfIncomplete(code);
-  const hasLogic = checkHasLogic(code);
-  const hasErrors = checkSyntaxErrors(code);
-
-  let result: "PASS" | "FAIL" | "ERROR" = "PASS";
-  let score = 100;
-  let feedback = "Code evaluation completed";
-
-  // Determine result based on code analysis
-  if (hasErrors) {
-    result = "ERROR";
-    score = 0;
-    feedback = "Code has syntax errors";
-  } else if (isIncomplete) {
-    result = "FAIL";
-    score = Math.max(10, Math.min(30, Math.floor(codeLength / 10))); // 10-30 based on effort
-    feedback = "Code appears incomplete or contains placeholder text";
-  } else if (!hasLogic) {
-    result = "FAIL";
-    score = Math.max(20, Math.min(50, Math.floor(codeLength / 8))); // 20-50 based on effort
-    feedback = "Code lacks problem-solving logic";
-  } else {
-    // Code looks reasonable, give it a decent score
-    const complexityScore = Math.min(
-      100,
-      Math.max(60, codeLength / 5 + codeLines.length * 3)
-    );
-    score = Math.floor(complexityScore);
-    feedback = "Code appears to implement a solution";
-  }
-
-  // Generate realistic runtime and memory based on code complexity
-  const runtime = generateRealisticRuntime(language, score);
-  const memory = generateRealisticMemory(code, language);
-
-  console.log(
-    `📊 Evaluation result: ${result}, Score: ${score}, Feedback: ${feedback}`
-  );
-
-  return {
-    result,
-    score,
-    runtime,
-    memory,
-    feedback,
-  };
-}
-
-// Check if code is incomplete (contains placeholders, comments without implementation)
-function checkIfIncomplete(code: string): boolean {
-  // Common incomplete patterns
-  const incompletePatterns = [
-    /\/\/ your code here/i,
-    /\/\* your code here \*\//i,
-    /# your code here/i,
-    /\/\/ todo/i,
-    /\/\/ implement/i,
-    /console\.log\(["']hello world["']\)/i,
-    /print\(["']hello world["']\)/i,
-    /cout\s*<<\s*["']hello world["']/i,
-    /printf\(["']hello world["']\)/i,
-  ];
-
-  return incompletePatterns.some((pattern) => pattern.test(code));
-}
-
-// Check if code has actual problem-solving logic
-function checkHasLogic(code: string): boolean {
-  // Look for signs of logic
-  const logicPatterns = [
-    /if\s*\(/,
-    /for\s*\(/,
-    /while\s*\(/,
-    /return\s+(?!input|test)/i,
-    /function\s+\w+\s*\([^)]*\)\s*{[^}]*[a-zA-Z][^}]*}/,
-    /def\s+\w+\([^)]*\):[^:]*[a-zA-Z]/,
-    /\b(sort|filter|map|reduce|find|indexOf|includes|push|pop|shift|unshift)\b/,
-    /\b(len|length|size|count)\b/,
-    /[=<>!]=?|&&|\|\||[+\-*/%]/,
-  ];
-
-  return logicPatterns.some((pattern) => pattern.test(code));
-}
-
-// Basic syntax error detection
-function checkSyntaxErrors(code: string): boolean {
-  try {
-    // Very basic syntax checks
-    const openBraces = (code.match(/\{/g) || []).length;
-    const closeBraces = (code.match(/\}/g) || []).length;
-    const openParens = (code.match(/\(/g) || []).length;
-    const closeParens = (code.match(/\)/g) || []).length;
-
-    return openBraces !== closeBraces || openParens !== closeParens;
-  } catch (error) {
-    return true;
-  }
-}
-
-// Generate realistic runtime based on code complexity
-function generateRealisticRuntime(
-  language: string,
-  score: number
-): number {
-  const baseTime =
-    language === "javascript"
-      ? 20
-      : language === "python"
-      ? 35
-      : language === "java"
-      ? 45
-      : 25;
-
-  const complexityFactor = score / 100;
-  const variation = Math.random() * 0.3 + 0.85; // 0.85-1.15 variation
-
-  return Math.round(baseTime * (2 - complexityFactor) * variation * 10) / 10;
-}
-
-// Generate realistic memory usage
-function generateRealisticMemory(
-  code: string,
-  language: string,
-): number {
-  const baseMemory =
-    language === "javascript"
-      ? 15
-      : language === "python"
-      ? 20
-      : language === "java"
-      ? 25
-      : 12;
-
-  const codeLength = code.length;
-  const complexityFactor = Math.min(2, codeLength / 200);
-  const variation = Math.random() * 0.2 + 0.9; // 0.9-1.1 variation
-
-  return (
-    Math.round(baseMemory * (1 + complexityFactor * 0.5) * variation * 10) / 10
-  );
-}
-
-// AI evaluation function (when available)
-async function getAIEvaluation(submission: {
-  id: string;
-  code: string;
-  language: string;
-  challenge: {
-    id: string;
-    title: string;
-    description: any;
-  };
-}) {
-  if (!ai) {
-    throw new Error("AI not available");
-  }
-
-  const prompt = `
-Evaluate this code submission:
-
-Challenge: ${submission.challenge.title}
-Description: ${submission.challenge.description}
-Language: ${submission.language}
-Code:
-${submission.code}
-
-Please provide an evaluation in JSON format:
-{
-  "result": "PASS" or "FAIL",
-  "score": number (0-100),
-  "runtime": number (milliseconds),
-  "memory": number (MB),
-  "feedback": "detailed feedback"
-}
-`;
-
-  console.log("📡 Sending prompt to AI...");
-
-  const model = ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-  });
-  const response = await model;
-  const text = response?.text || "";
-
-  if (!text) {
-    throw new Error("Failed to get AI evaluation");
-  }
-
-  // Parse AI response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("No JSON found in response");
-  }
-
-  let jsonString = jsonMatch[0];
-  jsonString = jsonString.replace(/```json\s*/g, "").replace(/```\s*$/g, "");
-  jsonString = jsonString.replace(/,(\s*[}\]])/g, "$1");
-
-  return JSON.parse(jsonString);
 }
 
 export async function POST(
@@ -382,13 +250,13 @@ export async function POST(
       challengeId: submission.challengeId,
     });
 
-    // Automatically evaluate the submission
-    console.log("🤖 Starting submission evaluation...");
+    // Automatically evaluate the submission using AI
+    console.log("🤖 Starting AI submission evaluation...");
     try {
       const { evaluation, submission: updatedSubmission } =
         await evaluateSubmission(submission.id);
 
-      console.log("✅ Evaluation completed successfully:", evaluation);
+      console.log("✅ AI evaluation completed successfully:", evaluation);
 
       return NextResponse.json({
         message: "Submission created and evaluated successfully",
@@ -397,11 +265,11 @@ export async function POST(
       });
     } catch (evaluationError) {
       // If evaluation fails, still return the submission but with error info
-      console.error("⚠️ Evaluation failed:", evaluationError);
+      console.error("⚠️ AI evaluation failed:", evaluationError);
       return NextResponse.json({
-        message: "Submission created successfully, but evaluation failed",
+        message: "Submission created successfully, but AI evaluation failed",
         submission,
-        evaluationError: "Failed to evaluate submission",
+        evaluationError: "Failed to evaluate submission with AI",
       });
     }
   } catch (error) {
