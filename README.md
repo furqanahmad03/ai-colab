@@ -1,36 +1,192 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Colab - Coding Challenge Platform
 
-## Getting Started
+A modern web application for creating, solving, and managing coding challenges with AI-powered problem generation.
 
-First, run the development server:
+## ✨ Features
 
+- **AI-Powered Problem Generation**: Create coding challenges using Google Gemini AI (OpenAI API integration coming soon)
+- **Daily Challenges**: Automatically generated daily coding problems
+- **Code Editor**: Built-in Monaco Editor with syntax highlighting and code execution
+- **User Authentication**: Secure login/signup system with NextAuth.js
+- **Progress Tracking**: Monitor your coding progress, points, and rank
+- **Submission Management**: View and track all your code submissions
+- **Problem Categories**: Organized by Programming Fundamentals, OOP, and DSA
+- **Real-time Code Execution**: Test your solutions before submitting
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15, React 18, TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: MongoDB with Prisma ORM
+- **Authentication**: NextAuth.js
+- **Code Editor**: Monaco Editor
+- **AI Integration**: OpenAI API
+- **Deployment**: Vercel
+
+## 📋 Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- MongoDB database
+- OpenAI API key
+
+## 🔧 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/furqanahmad03/ai-colab.git
+   cd ai-colab
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   Create a `.env` file in the root directory:
+   ```env
+   DATABASE_URL="your-mongodb-connection-string"
+   OPENAI_API_KEY="your-gemini-api-key"
+   NEXTAUTH_SECRET="your-nextauth-secret"
+   NEXTAUTH_URL="http://localhost:3000"
+   ```
+
+4. **Generate Prisma client**
+   ```bash
+   npx prisma generate
+   ```
+
+5. **Run database migrations**
+   ```bash
+   npx prisma db push
+   ```
+
+6. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+## 🚀 Deployment
+
+### Netlify Deployment
+
+1. **Connect your repository** to Netlify
+2. **Set build command**: `npx prisma generate && npm run build`
+3. **Set publish directory**: `.next`
+4. **Add environment variables** in Netlify dashboard:
+   - `DATABASE_URL`
+   - `GEMINI_API_KEY`
+   - `NEXTAUTH_SECRET`
+   - `NEXTAUTH_URL` (your production URL)
+
+### Important Notes for Deployment
+
+- **Prisma Generation**: Always run `prisma generate` before building
+- **Environment Variables**: Ensure all required env vars are set in production
+- **Database**: Use a production MongoDB instance
+
+## 📁 Project Structure
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+colab/
+├── prisma/
+│   └── schema.prisma              # Database schema
+├── public/                        # Static assets
+├── src/
+│   ├── app/                       # Next.js App Router
+│   │   ├── api/                   # API routes
+│   │   │   ├── ai/generate/       # AI problem generation
+│   │   │   ├── auth/              # Authentication
+│   │   │   ├── challenges/        # Challenge management
+│   │   │   ├── daily-challanges/  # Daily challenges
+│   │   │   ├── dashboard/         # Dashboard APIs
+│   │   │   ├── submissions/       # Submission management
+│   │   │   └── users/             # User management
+│   │   ├── components/            # Page components
+│   │   ├── dashboard/             # Dashboard pages
+│   │   ├── problems/              # Problem pages
+│   │   ├── login/                 # Auth pages
+│   │   └── signup/
+│   ├── components/                # Shared UI components
+│   │   └── ui/                    # UI component library
+│   ├── lib/                       # Utilities & helpers
+│   └── types/                     # TypeScript types
+├── package.json                   # Dependencies & scripts
+└── tailwind.config.ts            # Tailwind configuration
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔌 API Routes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `POST /api/ai/generate` - Generate new coding challenges
+- `GET /api/challenges` - Fetch all challenges
+- `GET /api/challenges/[id]` - Get specific challenge
+- `POST /api/submissions` - Submit code solutions
+- `GET /api/submissions` - Fetch user submissions
+- `GET /api/daily-challanges` - Get daily challenges
+- `POST /api/auth/signup` - User registration
+- `GET /api/auth/[...nextauth]` - NextAuth.js routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🎯 Key Features Explained
 
-## Learn More
+### Dashboard
+- **User Statistics**: Problems solved, total points, and rank
+- **Recent Problems**: Latest 5 problems created by the user
+- **Today's Challenge**: Current daily challenge with submission count
+- **Progress Tracking**: Visual representation of coding progress
 
-To learn more about Next.js, take a look at the following resources:
+### Problem Management
+- **AI Generation**: Create problems using natural language descriptions
+- **Difficulty Levels**: Easy, Medium, Hard with appropriate scoring
+- **Categories**: Automatic categorization (PF, OOP, DSA) based on tags
+- **Status Tracking**: Track problem status (not solved, accepted, rejected)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Code Editor
+- **Monaco Integration**: Professional code editing experience
+- **Syntax Highlighting**: Support for multiple programming languages
+- **Code Execution**: Test solutions before submission
+- **Submission Management**: Track all attempts and results
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔮 Future Updates
 
-## Deploy on Vercel
+- **OpenAI Integration**: Replace Google Gemini with OpenAI API for enhanced problem generation
+- **Advanced Analytics**: Detailed performance metrics and insights
+- **Community Features**: User rankings, leaderboards, and discussions
+- **Code Review System**: Peer review and feedback mechanisms
+- **Mobile App**: React Native mobile application
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🐛 Troubleshooting
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Common Issues
+
+1. **Prisma Client Not Generated**
+   ```bash
+   npx prisma generate
+   ```
+
+2. **Database Connection Issues**
+   - Verify `DATABASE_URL` in environment variables
+   - Ensure MongoDB instance is accessible
+
+3. **AI Generation Failures**
+   - Check `GEMINI_API_KEY` is valid
+   - Verify API quota and limits
+
+4. **Build Failures on Netlify**
+   - Ensure build command includes `prisma generate`
+   - Check all environment variables are set
+
+## 📝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🤝 Support
+
+For support and questions, please open an issue in the repository or contact the development team.
