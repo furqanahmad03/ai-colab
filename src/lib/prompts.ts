@@ -10,6 +10,7 @@ Generate {numberOfProblems} unique coding challenge(s) with the following criter
 - Difficulty: {difficultyLevel}
 - Exclude these existing challenge titles: {existingChallenges}
 - Avoid these already generated titles: {alreadyGenerated}
+- Always include the category in the tags like "PF", "OOP", "DSA"
 
 Return ONLY a valid JSON object with this structure (no markdown or extra text):
 
@@ -56,6 +57,7 @@ Generate 1 unique daily coding challenge with the following criteria:
 - Difficulty: {difficultyLevel}
 - Exclude these existing challenge titles: {existingChallenges}
 - Avoid these already generated titles: {alreadyGenerated}
+- Always include the category in the tags like "PF", "OOP", "DSA"
 
 Daily Challenge Requirements:
 - Should be engaging and educational
@@ -104,13 +106,14 @@ Rules:
     PF: "Programming Fundamentals (variables, control flow, functions, basic algorithms)",
     OOP: "Object-Oriented Programming (classes, inheritance, polymorphism, encapsulation)",
     DSA: "Data Structures & Algorithms (arrays, linked lists, trees, graphs, sorting, searching)",
-    ALL: "Mix of Programming Fundamentals, Object-Oriented Programming, and Data Structures & Algorithms"
+    ALL: "Mix of Programming Fundamentals, Object-Oriented Programming, and Data Structures & Algorithms",
   },
 
   difficultyDescriptions: {
     EASY: "Basic concepts, simple logic, suitable for beginners",
-    MEDIUM: "Intermediate concepts, moderate complexity, requires some problem-solving skills",
-    HARD: "Advanced concepts, complex algorithms, requires strong problem-solving abilities"
+    MEDIUM:
+      "Intermediate concepts, moderate complexity, requires some problem-solving skills",
+    HARD: "Advanced concepts, complex algorithms, requires strong problem-solving abilities",
   },
 
   submissionEvaluationSystemPrompt: `
@@ -173,5 +176,5 @@ Judging Guidelines:
 - If you're unable to evaluate the code: result is "PENDING"
 - You must simulate typical test cases based on examples and constraints
 - Do not return extra commentary or markdown — just valid JSON
-`
+`,
 } as const;

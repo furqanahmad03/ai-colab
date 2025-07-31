@@ -1,4 +1,4 @@
-'use client'
+"use client";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/ui/icons";
@@ -10,11 +10,13 @@ export function AuthenticatedNavbar() {
   const user = {
     name: session?.user?.name || session?.user?.email || "User",
     email: session?.user?.email || "user@example.com",
-    avatar: session?.user?.name ? session.user.name.substring(0, 2).toUpperCase() : "U",
+    avatar: session?.user?.name
+      ? session.user.name.substring(0, 2).toUpperCase()
+      : "U",
   };
 
   const handleLogout = () => {
-    signOut({ callbackUrl: "/app/page.tsx" });
+    signOut({ callbackUrl: "/" });
   };
 
   return (
@@ -29,14 +31,18 @@ export function AuthenticatedNavbar() {
                 </div>
               </div>
               <div className="ml-4">
-                <h1 className="text-white font-semibold text-lg">AI Code Lab</h1>
+                <h1 className="text-white font-semibold text-lg">
+                  AI Code Lab
+                </h1>
               </div>
             </div>
           </Link>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
               <div className="h-8 w-8 bg-emerald-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">{user.avatar}</span>
+                <span className="text-white text-sm font-medium">
+                  {user.avatar}
+                </span>
               </div>
               <div className="hidden md:block">
                 <p className="text-white text-sm font-medium">{user.name}</p>

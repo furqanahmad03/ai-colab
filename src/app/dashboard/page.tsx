@@ -532,7 +532,6 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({
           userId: session.user?.id,
-          numberOfChallenges: 1,
           difficultyLevel: selectedDifficulty,
           categories: selectedCategories,
         }),
@@ -541,12 +540,15 @@ export default function DashboardPage() {
       const data = await response.json();
 
       if (response.ok) {
-        console.log(data.generatedChallenges);
-        toast.success("Problem generated successfully!");
+        console.log("Generated challenges:", data.generatedChallenges);
+        console.log("Saved challenges:", data.savedChallenges);
+        toast.success(`Successfully generated ${data.totalSaved} problem(s)!`);
         router.push("/problems");
       } else {
         console.error("Failed to generate challenges:", data.error);
-        toast.error("Failed to generate problem. Please try again.");
+        toast.error(
+          data.error || "Failed to generate problem. Please try again."
+        );
       }
     } catch (error) {
       console.error("Error generating challenges:", error);
