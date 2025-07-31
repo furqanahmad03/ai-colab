@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Clock,
   Circle,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -936,6 +937,9 @@ export default function DashboardPage() {
                       <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
                         Category
                       </th>
+                      <th className="text-left py-4 px-6 font-semibold uppercase tracking-wider">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -947,32 +951,32 @@ export default function DashboardPage() {
                       return (
                         <tr
                           key={problem.id}
-                          className="border-b border-gray-800 hover:bg-gray-800/50 hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                          className="border-b border-gray-800 hover:bg-gray-800/50 hover:shadow-lg transition-all duration-200 cursor-pointer group relative"
                           onClick={() => router.push(`/problems/${problem.id}`)}
                         >
                           <td className="py-5 px-6">
                             <div className="flex items-center">
                               {status.icon}
-                              <span className="ml-2 text-sm font-medium text-gray-300">
+                              <span className="ml-2 text-sm font-medium text-gray-300 group-hover:text-emerald-400 transition-colors duration-200">
                                 {status.status}
                               </span>
                             </div>
                           </td>
                           <td className="py-5 px-6">
-                            <span className="text-white font-semibold hover:text-emerald-400 transition-colors duration-200">
+                            <span className="text-white font-semibold group-hover:text-emerald-400 transition-colors duration-200">
                               {problem.title}
                             </span>
                           </td>
                           <td className="py-5 px-6">
                             <span
-                              className={`font-semibold ${getDifficultyColor(
+                              className={`font-semibold group-hover:scale-105 transition-transform duration-200 ${getDifficultyColor(
                                 problem.difficulty
                               )}`}
                             >
                               {problem.difficulty}
                             </span>
                           </td>
-                          <td className="py-5 px-6 text-gray-300 font-medium">
+                          <td className="py-5 px-6 text-gray-300 font-medium group-hover:text-emerald-400 transition-colors duration-200">
                             {points}
                           </td>
                           <td className="py-5 px-6">
@@ -982,6 +986,11 @@ export default function DashboardPage() {
                             >
                               {category}
                             </Badge>
+                          </td>
+                          <td className="py-5 px-6">
+                            <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              <ChevronRight className="h-4 w-4 text-emerald-400" />
+                            </div>
                           </td>
                         </tr>
                       );

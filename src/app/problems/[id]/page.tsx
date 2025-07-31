@@ -4,12 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  cn,
-  processAIContent,
-  parseMultiplePackets,
-  reassemblePackets,
-} from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import CodeEditor from "../../components/CodeEditor";
 import {
   ArrowLeft,
@@ -18,7 +13,7 @@ import {
   Lock,
   Play,
   Loader2,
-  Trophy
+  Trophy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
@@ -52,7 +47,7 @@ interface Question {
 interface ApiChallenge {
   id: string;
   title: string;
-  description: string;
+  description: string | any;
   difficulty: Difficulty;
   tags: string[];
   createdById?: string;
@@ -73,7 +68,6 @@ interface ApiChallenge {
     submissions: number;
   };
   createdAt: string;
-  // AI-generated content might have these additional fields
   aiGeneratedContent?: string;
   rawContent?: string;
   examples?: Array<{
@@ -110,7 +104,93 @@ const getCategoryTitle = (category: string) => {
   }
 };
 
-// Enhanced transform function with AI content processing
+// Function to extract examples from description text
+const extractExamplesFromText = (
+  description: string
+): Array<{
+  input: string;
+  output: string;
+  explanation?: string;
+}> => {
+  const examples: Array<{
+    input: string;
+    output: string;
+    explanation?: string;
+  }> = [];
+
+  // Split the description into lines
+  const lines = description.split("\n");
+  let currentExample: any = null;
+  let inExampleSection = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Check if we're entering the examples section
+    if (line.toLowerCase().includes("examples:")) {
+      inExampleSection = true;
+      continue;
+    }
+
+    // Check if we're starting a new example
+    if (inExampleSection && line.toLowerCase().includes("example")) {
+      if (currentExample && currentExample.input && currentExample.output) {
+        examples.push(currentExample);
+      }
+      currentExample = {};
+      continue;
+    }
+
+    // Extract input
+    if (inExampleSection && line.toLowerCase().startsWith("input:")) {
+      const input = line.substring(line.indexOf(":") + 1).trim();
+      if (currentExample) {
+        currentExample.input = input;
+      }
+      continue;
+    }
+
+    // Extract output
+    if (inExampleSection && line.toLowerCase().startsWith("output:")) {
+      const output = line.substring(line.indexOf(":") + 1).trim();
+      if (currentExample) {
+        currentExample.output = output;
+      }
+      continue;
+    }
+
+    // Extract explanation
+    if (inExampleSection && line.toLowerCase().startsWith("explanation:")) {
+      let explanation = line.substring(line.indexOf(":") + 1).trim();
+
+      // Collect multi-line explanation
+      let j = i + 1;
+      while (
+        j < lines.length &&
+        lines[j].trim() &&
+        !lines[j].trim().toLowerCase().includes("example")
+      ) {
+        explanation += " " + lines[j].trim();
+        j++;
+      }
+
+      if (currentExample) {
+        currentExample.explanation = explanation;
+      }
+      i = j - 1; // Skip the lines we just processed
+      continue;
+    }
+  }
+
+  // Add the last example if it exists
+  if (currentExample && currentExample.input && currentExample.output) {
+    examples.push(currentExample);
+  }
+
+  console.log("🔍 Extracted examples from text:", examples);
+  return examples;
+};
+
 const transformApiChallenge = (apiChallenge: ApiChallenge): Question => {
   console.log("🔍 Transforming API Challenge:", apiChallenge);
 
@@ -124,70 +204,51 @@ const transformApiChallenge = (apiChallenge: ApiChallenge): Question => {
       ? Math.round((passedSubmissions / totalSubmissions) * 100)
       : 0;
 
-  // Process AI-generated content if available
-  let processedContent = null;
-  let finalDescription = apiChallenge.description;
-  let finalProblemStatement = apiChallenge.description;
-  let finalExamples = apiChallenge.examples || [];
-  let finalConstraints = apiChallenge.constraints || [];
+  // Handle description and examples
+  let finalDescription = "";
+  let finalExamples = [];
+  let finalConstraints = [];
 
-  // Check if we have AI-generated content to process
-  if (apiChallenge.aiGeneratedContent || apiChallenge.rawContent) {
-    const rawContent =
-      apiChallenge.aiGeneratedContent || apiChallenge.rawContent || "";
-
-    console.log(
-      "🤖 Processing AI-generated content:",
-      rawContent.substring(0, 200) + "..."
-    );
-
-    try {
-      // First, check if content contains packets
-      const packets = parseMultiplePackets(rawContent);
-
-      if (packets.length > 0) {
-        console.log("📦 Found packets:", packets.length);
-        // Reassemble packets if found
-        const reassembledContent = reassemblePackets(packets);
-        console.log("🔄 Reassembled content:", reassembledContent);
-
-        // Process the reassembled content
-        processedContent = processAIContent(reassembledContent);
-      } else {
-        // Process raw content directly
-        processedContent = processAIContent(rawContent);
-      }
-
-      console.log("✨ Processed AI content:", processedContent);
-
-      // Use processed content
-      if (processedContent) {
-        finalDescription =
-          processedContent.description || apiChallenge.description;
-        finalProblemStatement =
-          processedContent.problemStatement ||
-          processedContent.description ||
-          apiChallenge.description;
-        finalExamples =
-          processedContent.examples.length > 0
-            ? processedContent.examples
-            : finalExamples;
-        finalConstraints =
-          processedContent.constraints.length > 0
-            ? processedContent.constraints
-            : finalConstraints;
-      }
-    } catch (error) {
-      console.error("❌ Error processing AI content:", error);
-      // Fall back to original content
-      finalDescription = apiChallenge.description;
-      finalProblemStatement = apiChallenge.description;
+  // Handle nested description structure
+  if (
+    apiChallenge.description &&
+    typeof apiChallenge.description === "object"
+  ) {
+    const descObj = apiChallenge.description as any;
+    finalDescription = descObj.problemStatement || JSON.stringify(descObj);
+    if (descObj.examples && Array.isArray(descObj.examples)) {
+      finalExamples = descObj.examples;
     }
+    if (descObj.constraints && Array.isArray(descObj.constraints)) {
+      finalConstraints = descObj.constraints;
+    }
+  } else {
+    finalDescription =
+      typeof apiChallenge.description === "string"
+        ? apiChallenge.description
+        : JSON.stringify(apiChallenge.description);
+
+    // Try to extract examples from description text
+    if (typeof apiChallenge.description === "string") {
+      finalExamples = extractExamplesFromText(apiChallenge.description);
+    }
+
+    // Fallback to top-level examples
+    if (finalExamples.length === 0) {
+      finalExamples = apiChallenge.examples || [];
+    }
+    finalConstraints = apiChallenge.constraints || [];
   }
 
-  // Determine category based on tags or processed content
+  console.log("🔍 Raw API examples:", apiChallenge.examples);
+  console.log("🔍 Raw API description:", apiChallenge.description);
+  console.log("🔍 Final examples after processing:", finalExamples);
+  console.log("🔍 Examples count:", finalExamples.length);
+  console.log("🔍 First example:", finalExamples[0]);
+
+  // Determine category based on tags
   let category = "pf"; // default
-  const allTags = [...apiChallenge.tags, ...(processedContent?.tags || [])];
+  const allTags = [...apiChallenge.tags];
 
   if (
     allTags.some((tag) =>
@@ -213,139 +274,24 @@ const transformApiChallenge = (apiChallenge: ApiChallenge): Question => {
     category = "oop";
   }
 
-  // Generate fallback examples if none exist
-  if (finalExamples.length === 0) {
-    finalExamples = getMockExamples(apiChallenge.difficulty);
-  }
-
-  // Generate fallback constraints if none exist
-  if (finalConstraints.length === 0) {
-    finalConstraints = getMockConstraints(apiChallenge.difficulty);
-  }
-
   const result: Question = {
     id: apiChallenge.id,
     title: apiChallenge.title,
     description: finalDescription,
     difficulty: apiChallenge.difficulty,
-    tags: [
-      ...new Set([...apiChallenge.tags, ...(processedContent?.tags || [])]),
-    ], // Merge and deduplicate tags
+    tags: apiChallenge.tags,
     category,
-    isCompleted: false, // You can determine this based on user's submissions
-    isPremium: false, // You can set this based on your business logic
+    isCompleted: false,
+    isPremium: false,
     acceptanceRate,
     solvedCount: totalSubmissions,
-    problemStatement: finalProblemStatement,
+    problemStatement: finalDescription,
     examples: finalExamples,
     constraints: finalConstraints,
   };
 
   console.log("✅ Final transformed question:", result);
   return result;
-};
-
-// Fallback functions for mock data
-const getMockExamples = (difficulty: Difficulty) => {
-  switch (difficulty) {
-    case "EASY":
-      return [
-        {
-          input: "Sample input",
-          output: "Sample output",
-          explanation: "This is how the solution works.",
-        },
-      ];
-    case "MEDIUM":
-      return [
-        {
-          input: "nums = [1,2,3], target = 4",
-          output: "true",
-          explanation: "Example explanation for medium problem.",
-        },
-        {
-          input: "nums = [1,2], target = 5",
-          output: "false",
-          explanation: "Another example for better understanding.",
-        },
-      ];
-    case "HARD":
-      return [
-        {
-          input: "Complex input example",
-          output: "Complex output",
-          explanation: "Detailed explanation for hard problem.",
-        },
-        {
-          input: "Edge case input",
-          output: "Edge case output",
-          explanation: "Edge case handling explanation.",
-        },
-      ];
-    default:
-      return [];
-  }
-};
-
-const getMockConstraints = (difficulty: Difficulty) => {
-  switch (difficulty) {
-    case "EASY":
-      return [
-        "1 <= input <= 100",
-        "Time complexity: O(n)",
-        "Space complexity: O(1)",
-      ];
-    case "MEDIUM":
-      return [
-        "1 <= input <= 1000",
-        "Time complexity: O(n log n)",
-        "Space complexity: O(n)",
-      ];
-    case "HARD":
-      return [
-        "1 <= input <= 10^5",
-        "Time complexity: O(n^2)",
-        "Space complexity: O(n)",
-      ];
-    default:
-      return [];
-  }
-};
-
-// Helper function to render markdown-like formatting
-const renderFormattedText = (text: string) => {
-  if (!text) return text;
-
-  // Split text by markdown patterns while preserving the delimiters
-  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
-
-  return parts.map((part, index) => {
-    // Check if it's bold text (**text**)
-    if (part.startsWith("**") && part.endsWith("**")) {
-      const boldText = part.slice(2, -2);
-      return (
-        <strong key={index} className="font-bold text-white">
-          {boldText}
-        </strong>
-      );
-    }
-
-    // Check if it's code text (`text`) - now with italic styling
-    if (part.startsWith("`") && part.endsWith("`")) {
-      const codeText = part.slice(1, -1);
-      return (
-        <code
-          key={index}
-          className="text-sm bg-slate-800 text-emerald-400 px-1 py-0.5 rounded font-mono italic"
-        >
-          {codeText}
-        </code>
-      );
-    }
-
-    // Return plain text
-    return part;
-  });
 };
 
 export default function ProblemPage() {
@@ -357,10 +303,6 @@ export default function ProblemPage() {
   const [problem, setProblem] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<{
-    rawApiResponse: { challenge?: { aiGeneratedContent?: string } };
-    timestamp: string;
-  } | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -371,7 +313,6 @@ export default function ProblemPage() {
 
   useEffect(() => {
     const fetchChallenge = async () => {
-      // Check if user is authenticated
       if (!session?.user?.id) {
         setError("Authentication required");
         setLoading(false);
@@ -384,13 +325,17 @@ export default function ProblemPage() {
 
         console.log("🚀 Fetching challenge with ID:", problemId);
 
-        const response = await fetch(`/api/challenges/${problemId}?userId=${session.user.id}`);
+        const response = await fetch(
+          `/api/challenges/${problemId}?userId=${session.user.id}`
+        );
 
         if (!response.ok) {
           if (response.status === 404) {
             setError("Challenge not found");
           } else if (response.status === 403) {
-            setError("Access denied - You don&apos;t have permission to view this challenge");
+            setError(
+              "Access denied - You don't have permission to view this challenge"
+            );
           } else {
             setError("Failed to fetch challenge");
           }
@@ -400,13 +345,11 @@ export default function ProblemPage() {
         const data = await response.json();
         console.log("📥 Raw API response:", data);
 
-        // Store debug info
-        setDebugInfo({
-          rawApiResponse: data,
-          timestamp: new Date().toISOString(),
-        });
-
         const transformedProblem = transformApiChallenge(data.challenge);
+        console.log(
+          "📋 Transformed problem examples:",
+          transformedProblem.examples
+        );
         setProblem(transformedProblem);
       } catch (err) {
         console.error("❌ Error fetching challenge:", err);
@@ -421,14 +364,6 @@ export default function ProblemPage() {
     }
   }, [problemId, session?.user?.id]);
 
-  // Debug function to show processed content
-  const showDebugInfo = () => {
-    if (debugInfo) {
-      console.log("🔍 Debug Info:", debugInfo);
-      console.log("📊 Current Problem State:", problem);
-    }
-  };
-
   // Loading state
   if (loading) {
     return (
@@ -436,7 +371,6 @@ export default function ProblemPage() {
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-emerald-400 mx-auto" />
           <p className="text-white">Loading challenge...</p>
-          <p className="text-gray-400 text-sm">Processing AI content...</p>
         </div>
       </div>
     );
@@ -460,11 +394,6 @@ export default function ProblemPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Problems
           </Button>
-          {debugInfo && (
-            <Button variant="outline" onClick={showDebugInfo} className="ml-4">
-              Show Debug Info
-            </Button>
-          )}
         </div>
       </div>
     );
@@ -488,19 +417,9 @@ export default function ProblemPage() {
                   Back
                 </Button>
                 <div className="flex items-center gap-2">
-                  {problem.isCompleted ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  ) : problem.isPremium ? (
-                    <Lock className="h-4 w-4 text-yellow-500" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground" />
-                  )}
                   <h1 className="text-2xl font-bold text-foreground">
                     {problem.title}
                   </h1>
-                  {problem.isPremium && (
-                    <Lock className="h-4 w-4 text-yellow-500" />
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -517,15 +436,6 @@ export default function ProblemPage() {
                   <Play className="mr-2 h-4 w-4" />
                   Start Solving
                 </Button>
-                {/* Debug button - remove in production */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={showDebugInfo}
-                  className="text-xs"
-                >
-                  🔍 Debug
-                </Button>
               </div>
             </div>
           </div>
@@ -539,41 +449,20 @@ export default function ProblemPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  Problem Description
-                  {/* Show indicator if AI-processed */}
-                  {debugInfo?.rawApiResponse?.challenge?.aiGeneratedContent && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/20"
-                    >
-                      AI-Generated
-                    </Badge>
-                  )}
-                </CardTitle>
+                <CardTitle>Problem Description</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="prose prose-invert max-w-none">
                   <p className="text-muted-foreground whitespace-pre-wrap">
-                    {renderFormattedText(problem.description)}
+                    {problem.description}
                   </p>
                 </div>
 
-                {problem.problemStatement &&
-                  problem.problemStatement !== problem.description && (
-                    <div>
-                      <h3 className="font-semibold mb-2">Problem Statement</h3>
-                      <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                        <p className="text-sm text-gray-300 whitespace-pre-wrap">
-                          {renderFormattedText(problem.problemStatement)}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
                 {problem.examples && problem.examples.length > 0 && (
                   <div>
-                    <h3 className="font-semibold mb-3">Examples</h3>
+                    <h3 className="font-semibold mb-3">
+                      Examples ({problem.examples.length})
+                    </h3>
                     <div className="space-y-4">
                       {problem.examples.map((example, index) => (
                         <div
@@ -586,7 +475,7 @@ export default function ProblemPage() {
                                 Input:{" "}
                               </span>
                               <code className="text-sm bg-slate-800 text-gray-300 px-2 py-1 rounded">
-                                {example.input}
+                                {example.input || "No input provided"}
                               </code>
                             </div>
                             <div>
@@ -594,7 +483,7 @@ export default function ProblemPage() {
                                 Output:{" "}
                               </span>
                               <code className="text-sm bg-slate-800 text-gray-300 px-2 py-1 rounded">
-                                {example.output}
+                                {example.output || "No output provided"}
                               </code>
                             </div>
                             {example.explanation && (
@@ -614,6 +503,17 @@ export default function ProblemPage() {
                   </div>
                 )}
 
+                {(!problem.examples || problem.examples.length === 0) && (
+                  <div>
+                    <h3 className="font-semibold mb-3">Examples</h3>
+                    <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm text-gray-400">
+                        No examples provided for this problem.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {problem.constraints && problem.constraints.length > 0 && (
                   <div>
                     <h3 className="font-semibold mb-2">Constraints</h3>
@@ -626,81 +526,6 @@ export default function ProblemPage() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Problem Info Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Problem Info</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Difficulty:</span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "border font-medium",
-                        getDifficultyColor(problem.difficulty)
-                      )}
-                    >
-                      {problem.difficulty}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Category:</span>
-                    <span className="text-sm text-muted-foreground">
-                      {getCategoryTitle(problem.category)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">
-                      Acceptance Rate:
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {problem.acceptanceRate}%
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Solved Count:</span>
-                    <span className="text-sm text-muted-foreground">
-                      {problem.solvedCount?.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <span className="text-sm font-medium mb-2 block">Tags:</span>
-                  <div className="flex flex-wrap gap-2">
-                    {problem.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2">
-                    <Trophy className="h-4 w-4 text-yellow-500" />
-                    <span className="font-medium text-sm">
-                      {problem.isCompleted ? "Completed" : "Not Started"}
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {problem.isCompleted
-                      ? "You have solved this problem"
-                      : "Start solving to track your progress"}
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -730,12 +555,6 @@ export default function ProblemPage() {
                     throw new Error("User not authenticated");
                   }
 
-                  console.log("📤 Making API call with data:", {
-                    userId,
-                    language,
-                    codeLength: code.length,
-                  });
-
                   // Make API call to submit the solution
                   const response = await fetch(
                     `/api/submissions/${problemId}`,
@@ -752,24 +571,17 @@ export default function ProblemPage() {
                     }
                   );
 
-                  console.log("📥 Response status:", response.status);
-
                   if (!response.ok) {
                     const errorData = await response.json();
-                    console.error("❌ API Error:", errorData);
                     throw new Error(
                       errorData.error || "Failed to submit solution"
                     );
                   }
 
                   const result = await response.json();
-                  console.log("✅ Submission result:", result);
-
-                  // Navigate to submission page with the submission ID
                   router.push(`/submissions/${result.submission.id}`);
                 } catch (error) {
-                  console.error("💥 Error submitting solution:", error);
-                  // TODO: Show error toast/notification to user
+                  console.error("Error submitting solution:", error);
                   alert(
                     `Error submitting solution: ${
                       error instanceof Error

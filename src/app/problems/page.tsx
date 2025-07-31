@@ -3,14 +3,21 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Trophy, List } from "lucide-react";
+import { ArrowLeft, Trophy, List, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Circle, Clock, XCircle, AlertTriangle } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Clock,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
 import { Footer } from "../components/Footer";
 import { AuthenticatedNavbar } from "../components/AuthenticatedNavbar";
+import { toast } from "sonner";
 
 type Difficulty = "EASY" | "MEDIUM" | "HARD";
 type Result = "PENDING" | "PASS" | "FAIL" | "ERROR";
@@ -67,7 +74,7 @@ const getCategoryTitle = (category: string) => {
     default:
       return category;
   }
-}
+};
 
 const getStatusDisplay = (challenge: ApiChallenge) => {
   if (challenge.submissions.length === 0) {
@@ -76,12 +83,12 @@ const getStatusDisplay = (challenge: ApiChallenge) => {
       icon: <Circle className="h-5 w-5 text-muted-foreground" />,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
-      badgeColor: "bg-blue-500 text-white"
+      badgeColor: "bg-blue-500 text-white",
     };
   }
 
   const latestSubmission = challenge.submissions[0];
-  
+
   switch (latestSubmission.result) {
     case "PASS":
       return {
@@ -89,7 +96,7 @@ const getStatusDisplay = (challenge: ApiChallenge) => {
         icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
         color: "text-emerald-500",
         bgColor: "bg-emerald-500/10",
-        badgeColor: "bg-green-500 text-white"
+        badgeColor: "bg-green-500 text-white",
       };
     case "FAIL":
       return {
@@ -97,7 +104,7 @@ const getStatusDisplay = (challenge: ApiChallenge) => {
         icon: <XCircle className="h-5 w-5 text-rose-500" />,
         color: "text-rose-500",
         bgColor: "bg-rose-500/10",
-        badgeColor: "bg-red-500 text-white"
+        badgeColor: "bg-red-500 text-white",
       };
     case "ERROR":
       return {
@@ -105,7 +112,7 @@ const getStatusDisplay = (challenge: ApiChallenge) => {
         icon: <AlertTriangle className="h-5 w-5 text-orange-500" />,
         color: "text-orange-500",
         bgColor: "bg-orange-500/10",
-        badgeColor: "bg-red-500 text-white"
+        badgeColor: "bg-red-500 text-white",
       };
     case "PENDING":
       return {
@@ -113,7 +120,7 @@ const getStatusDisplay = (challenge: ApiChallenge) => {
         icon: <Clock className="h-5 w-5 text-yellow-500" />,
         color: "text-yellow-500",
         bgColor: "bg-yellow-500/10",
-        badgeColor: "bg-yellow-500 text-white"
+        badgeColor: "bg-yellow-500 text-white",
       };
     default:
       return {
@@ -121,7 +128,7 @@ const getStatusDisplay = (challenge: ApiChallenge) => {
         icon: <Circle className="h-5 w-5 text-muted-foreground" />,
         color: "text-muted-foreground",
         bgColor: "bg-muted/50",
-        badgeColor: "bg-gray-500 text-white"
+        badgeColor: "bg-gray-500 text-white",
       };
   }
 };
@@ -134,6 +141,9 @@ export default function ProblemsPage() {
   const [challenges, setChallenges] = useState<ApiChallenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingChallenge, setDeletingChallenge] = useState<string | null>(
+    null
+  );
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -152,7 +162,9 @@ export default function ProblemsPage() {
   const fetchChallenges = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/challenges?userId=${session?.user?.id}`);
+      const response = await fetch(
+        `/api/challenges?userId=${session?.user?.id}`
+      );
       const data = await response.json();
 
       if (response.ok) {
@@ -185,14 +197,24 @@ export default function ProblemsPage() {
   // Group challenges by category
   const groupedQuestions = categories.reduce((acc, category) => {
     acc[category] = challenges.filter((challenge) => {
-      const tags = challenge.tags.map(tag => tag.toUpperCase());
+      const tags = challenge.tags.map((tag) => tag.toUpperCase());
       switch (category) {
         case "pf":
-          return tags.some(tag => tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS"));
+          return tags.some(
+            (tag) =>
+              tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS")
+          );
         case "oop":
-          return tags.some(tag => tag.includes("OOP") || tag.includes("OBJECT-ORIENTED"));
+          return tags.some(
+            (tag) => tag.includes("OOP") || tag.includes("OBJECT-ORIENTED")
+          );
         case "dsa":
-          return tags.some(tag => tag.includes("DSA") || tag.includes("DATA STRUCTURES") || tag.includes("ALGORITHMS"));
+          return tags.some(
+            (tag) =>
+              tag.includes("DSA") ||
+              tag.includes("DATA STRUCTURES") ||
+              tag.includes("ALGORITHMS")
+          );
         default:
           return false;
       }
@@ -202,11 +224,16 @@ export default function ProblemsPage() {
 
   // Add a "Other" category for challenges that don't fit PF, OOP, or DSA
   const otherChallenges = challenges.filter((challenge) => {
-    const tags = challenge.tags.map(tag => tag.toUpperCase());
-    return !tags.some(tag => 
-      tag.includes("PF") || tag.includes("PROGRAMMING FUNDAMENTALS") ||
-      tag.includes("DSA") || tag.includes("DATA STRUCTURES") || tag.includes("ALGORITHMS") ||
-      tag.includes("OOP") || tag.includes("OBJECT-ORIENTED")
+    const tags = challenge.tags.map((tag) => tag.toUpperCase());
+    return !tags.some(
+      (tag) =>
+        tag.includes("PF") ||
+        tag.includes("PROGRAMMING FUNDAMENTALS") ||
+        tag.includes("DSA") ||
+        tag.includes("DATA STRUCTURES") ||
+        tag.includes("ALGORITHMS") ||
+        tag.includes("OOP") ||
+        tag.includes("OBJECT-ORIENTED")
     );
   });
 
@@ -218,9 +245,49 @@ export default function ProblemsPage() {
     router.push(`/problems/${problemId}`);
   };
 
+  const handleDeleteChallenge = async (
+    challengeId: string,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation(); // Prevent row click
+
+    // Show confirmation toast
+    toast.promise(
+      (async () => {
+        const response = await fetch(
+          `/api/challenges/${challengeId}?userId=${session?.user?.id}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (response.ok) {
+          // Remove the challenge from the state
+          setChallenges((prev) =>
+            prev.filter((challenge) => challenge.id !== challengeId)
+          );
+          return "Challenge deleted successfully";
+        } else {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to delete challenge");
+        }
+      })(),
+      {
+        loading: "Deleting challenge...",
+        success: (message) => message,
+        error: (error) => error.message || "Failed to delete challenge",
+      }
+    );
+
+    setDeletingChallenge(challengeId);
+    setTimeout(() => setDeletingChallenge(null), 2000);
+  };
+
   // Calculate solved count
-  const solvedCount = challenges.filter(challenge => 
-    challenge.submissions.length > 0 && challenge.submissions[0].result === "PASS"
+  const solvedCount = challenges.filter(
+    (challenge) =>
+      challenge.submissions.length > 0 &&
+      challenge.submissions[0].result === "PASS"
   ).length;
 
   return (
@@ -266,7 +333,11 @@ export default function ProblemsPage() {
                       {solvedCount}/{challenges.length} Solved
                     </div>
                     <div className="text-muted-foreground">
-                      {challenges.length > 0 ? `${Math.round((solvedCount / challenges.length) * 100)}% Complete` : "No challenges yet"}
+                      {challenges.length > 0
+                        ? `${Math.round(
+                            (solvedCount / challenges.length) * 100
+                          )}% Complete`
+                        : "No challenges yet"}
                     </div>
                   </div>
                 </div>
@@ -312,6 +383,9 @@ export default function ProblemsPage() {
                         </th>
                         <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-48">
                           Tags
+                        </th>
+                        <th className="text-left py-4 px-4 sm:px-6 font-medium text-muted-foreground uppercase tracking-wider text-xs w-20">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -363,15 +437,17 @@ export default function ProblemsPage() {
                               </td>
                               <td className="py-4 px-4 sm:px-6 w-48">
                                 <div className="flex flex-wrap gap-1">
-                                  {challenge.tags.slice(0, 3).map((tag: string) => (
-                                    <Badge
-                                      key={tag}
-                                      variant="secondary"
-                                      className="text-xs px-2 py-0.5 bg-muted text-muted-foreground hover:bg-muted/80"
-                                    >
-                                      {tag}
-                                    </Badge>
-                                  ))}
+                                  {challenge.tags
+                                    .slice(0, 3)
+                                    .map((tag: string) => (
+                                      <Badge
+                                        key={tag}
+                                        variant="secondary"
+                                        className="text-xs px-2 py-0.5 bg-muted text-muted-foreground hover:bg-muted/80"
+                                      >
+                                        {tag}
+                                      </Badge>
+                                    ))}
                                   {challenge.tags.length > 3 && (
                                     <Badge
                                       variant="secondary"
@@ -382,12 +458,38 @@ export default function ProblemsPage() {
                                   )}
                                 </div>
                               </td>
+                              <td className="py-4 px-4 sm:px-6 w-20">
+                                {challenge.createdById ===
+                                  session?.user?.id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) =>
+                                      handleDeleteChallenge(challenge.id, e)
+                                    }
+                                    disabled={
+                                      deletingChallenge === challenge.id
+                                    }
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-500/10 p-1 h-8 w-8"
+                                    title="Delete challenge"
+                                  >
+                                    {deletingChallenge === challenge.id ? (
+                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                )}
+                              </td>
                             </tr>
                           );
                         })
                       ) : (
                         <tr>
-                          <td colSpan={4} className="py-8 px-4 sm:px-6 text-center text-muted-foreground">
+                          <td
+                            colSpan={5}
+                            className="py-8 px-4 sm:px-6 text-center text-muted-foreground"
+                          >
                             No problems in this category yet.
                           </td>
                         </tr>

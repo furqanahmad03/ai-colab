@@ -24,7 +24,9 @@ interface AIEvaluationResponse {
   explanation: string;
 }
 
-async function evaluateSubmission(submissionId: string): Promise<{ evaluation: AIEvaluationResponse; submission: any }> {
+async function evaluateSubmission(
+  submissionId: string
+): Promise<{ evaluation: AIEvaluationResponse; submission: any }> {
   try {
     console.log("🤖 Starting AI evaluation for submission:", submissionId);
 
@@ -40,52 +42,68 @@ async function evaluateSubmission(submissionId: string): Promise<{ evaluation: A
       throw new Error("Submission not found");
     }
 
-    console.log("📝 Evaluating code for challenge:", submission.challenge.title);
+    console.log(
+      "📝 Evaluating code for challenge:",
+      submission.challenge.title
+    );
 
     // Parse challenge description to extract components
     const description = submission.challenge.description;
-    const lines = description.split('\n');
-    
-    let problemStatement = '';
-    let inputFormat = '';
-    let constraints = '';
-    let outputFormat = '';
-    let examples = '';
 
-    let currentSection = '';
+    // Handle both string and JSON object descriptions
+    let descriptionText = "";
+    if (typeof description === "string") {
+      descriptionText = description;
+    } else if (typeof description === "object" && description !== null) {
+      // If it's a JSON object, extract the problem statement
+      const descObj = description as any;
+      descriptionText = descObj.problemStatement || JSON.stringify(description);
+    } else {
+      descriptionText = String(description);
+    }
+
+    const lines = descriptionText.split("\n");
+
+    let problemStatement = "";
+    let inputFormat = "";
+    let constraints = "";
+    let outputFormat = "";
+    let examples = "";
+
+    let currentSection = "";
     for (const line of lines) {
-      if (line.includes('Problem Statement:')) {
-        currentSection = 'problemStatement';
-        problemStatement = line.replace('Problem Statement:', '').trim();
-      } else if (line.includes('Input Format:')) {
-        currentSection = 'inputFormat';
-        inputFormat = line.replace('Input Format:', '').trim();
-      } else if (line.includes('Constraints:')) {
-        currentSection = 'constraints';
-        constraints = line.replace('Constraints:', '').trim();
-      } else if (line.includes('Output Format:')) {
-        currentSection = 'outputFormat';
-        outputFormat = line.replace('Output Format:', '').trim();
-      } else if (line.includes('Examples:')) {
-        currentSection = 'examples';
-        examples = line.replace('Examples:', '').trim();
+      if (line.includes("Problem Statement:")) {
+        currentSection = "problemStatement";
+        problemStatement = line.replace("Problem Statement:", "").trim();
+      } else if (line.includes("Input Format:")) {
+        currentSection = "inputFormat";
+        inputFormat = line.replace("Input Format:", "").trim();
+      } else if (line.includes("Constraints:")) {
+        currentSection = "constraints";
+        constraints = line.replace("Constraints:", "").trim();
+      } else if (line.includes("Output Format:")) {
+        currentSection = "outputFormat";
+        outputFormat = line.replace("Output Format:", "").trim();
+      } else if (line.includes("Examples:")) {
+        currentSection = "examples";
+        examples = line.replace("Examples:", "").trim();
       } else if (line.trim() && currentSection) {
         // Append to current section
         switch (currentSection) {
-          case 'problemStatement':
-            problemStatement += '\n' + line.trim();
+          case "problemStatement":
+            problemStatement += "\n" + line.trim();
             break;
-          case 'inputFormat':
-            inputFormat += '\n' + line.trim();
+          case "inputFormat":
+            inputFormat += "\n" + line.trim();
             break;
-          case 'constraints':
-            constraints += '\n' + line.trim();
+          case "constraints":
+            constraints += "\n" + line.trim();
             break;
-          case 'outputFormat':
-            outputFormat += '\n' + line.trim();
+          case "outputFormat":
+            outputFormat += "\n" + line.trim();
             break;
-          case 'examples':
-            examples += '\n' + line.trim();
+          case "examples":
+            examples += "\n" + line.trim();
             break;
         }
       }
@@ -93,22 +111,25 @@ async function evaluateSubmission(submissionId: string): Promise<{ evaluation: A
 
     // Debug: Check if promptData is available
     console.log("🔍 Debug - promptData keys:", Object.keys(promptData));
-    console.log("🔍 Debug - submissionEvaluationUserPrompt exists:", !!promptData.submissionEvaluationUserPrompt);
-    
+    console.log(
+      "🔍 Debug - submissionEvaluationUserPrompt exists:",
+      !!promptData.submissionEvaluationUserPrompt
+    );
+
     if (!promptData.submissionEvaluationUserPrompt) {
-      throw new Error('submissionEvaluationUserPrompt not found in promptData');
+      throw new Error("submissionEvaluationUserPrompt not found in promptData");
     }
 
     // Create user prompt using the template
     const userPrompt = promptData.submissionEvaluationUserPrompt
-      .replace('{title}', submission.challenge.title)
-      .replace('{problemStatement}', problemStatement)
-      .replace('{inputFormat}', inputFormat)
-      .replace('{constraints}', constraints)
-      .replace('{outputFormat}', outputFormat)
-      .replace('{examples}', examples)
-      .replace('{language}', submission.language)
-      .replace('{code}', submission.code);
+      .replace("{title}", submission.challenge.title)
+      .replace("{problemStatement}", problemStatement)
+      .replace("{inputFormat}", inputFormat)
+      .replace("{constraints}", constraints)
+      .replace("{outputFormat}", outputFormat)
+      .replace("{examples}", examples)
+      .replace("{language}", submission.language)
+      .replace("{code}", submission.code);
 
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
@@ -116,21 +137,21 @@ async function evaluateSubmission(submissionId: string): Promise<{ evaluation: A
       messages: [
         {
           role: "system",
-          content: promptData.submissionEvaluationSystemPrompt
+          content: promptData.submissionEvaluationSystemPrompt,
         },
         {
           role: "user",
-          content: userPrompt
-        }
+          content: userPrompt,
+        },
       ],
       temperature: 0.1,
       max_tokens: 500,
     });
 
     const responseText = completion.choices[0]?.message?.content;
-    
+
     if (!responseText) {
-      throw new Error('Empty response from OpenAI');
+      throw new Error("Empty response from OpenAI");
     }
 
     // Parse the JSON response (should be clean JSON from our prompt)
@@ -138,17 +159,24 @@ async function evaluateSubmission(submissionId: string): Promise<{ evaluation: A
     try {
       evaluation = JSON.parse(responseText);
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', responseText);
-      throw new Error('Failed to parse AI evaluation response');
+      console.error("Failed to parse OpenAI response:", responseText);
+      throw new Error("Failed to parse AI evaluation response");
     }
 
     // Validate the response structure
-    if (!evaluation.result || !['PASS', 'FAIL', 'ERROR', 'PENDING'].includes(evaluation.result)) {
-      throw new Error('Invalid result in AI response');
+    if (
+      !evaluation.result ||
+      !["PASS", "FAIL", "ERROR", "PENDING"].includes(evaluation.result)
+    ) {
+      throw new Error("Invalid result in AI response");
     }
 
-    if (typeof evaluation.score !== 'number' || evaluation.score < 0 || evaluation.score > 100) {
-      throw new Error('Invalid score in AI response');
+    if (
+      typeof evaluation.score !== "number" ||
+      evaluation.score < 0 ||
+      evaluation.score > 100
+    ) {
+      throw new Error("Invalid score in AI response");
     }
 
     // Update submission with evaluation results
@@ -167,7 +195,9 @@ async function evaluateSubmission(submissionId: string): Promise<{ evaluation: A
     return { evaluation, submission: updatedSubmission };
   } catch (error) {
     console.error("💥 Error in AI evaluation:", error);
-    throw error instanceof Error ? error : new Error("Unknown evaluation error");
+    throw error instanceof Error
+      ? error
+      : new Error("Unknown evaluation error");
   }
 }
 
