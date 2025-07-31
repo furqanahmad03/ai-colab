@@ -10,7 +10,7 @@ Generate {numberOfProblems} unique coding challenge(s) with the following criter
 - Difficulty: {difficultyLevel}
 - Exclude these existing challenge titles: {existingChallenges}
 - Avoid these already generated titles: {alreadyGenerated}
-- Always include the category in the tags like "PF", "OOP", "DSA"
+- Always include the category in the tags like "PF", "OOP" or "DSA" (only use one of these).
 
 Return ONLY a valid JSON object with this structure (no markdown or extra text):
 
@@ -57,7 +57,7 @@ Generate 1 unique daily coding challenge with the following criteria:
 - Difficulty: {difficultyLevel}
 - Exclude these existing challenge titles: {existingChallenges}
 - Avoid these already generated titles: {alreadyGenerated}
-- Always include the category in the tags like "PF", "OOP", "DSA"
+- Always include the category in the tags like "PF", "OOP" or "DSA" (only use one of these).
 
 Daily Challenge Requirements:
 - Should be engaging and educational

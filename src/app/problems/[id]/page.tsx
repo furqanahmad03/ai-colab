@@ -3,17 +3,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import CodeEditor from "../../components/CodeEditor";
 import {
   ArrowLeft,
-  CheckCircle2,
-  Circle,
-  Lock,
   Play,
   Loader2,
-  Trophy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
@@ -47,7 +42,7 @@ interface Question {
 interface ApiChallenge {
   id: string;
   title: string;
-  description: string | any;
+  description: string | { problemStatement: string };
   difficulty: Difficulty;
   tags: string[];
   createdById?: string;
@@ -91,20 +86,6 @@ const getDifficultyColor = (difficulty: Difficulty) => {
   }
 };
 
-const getCategoryTitle = (category: string) => {
-  switch (category) {
-    case "pf":
-      return "Programming Fundamentals";
-    case "dsa":
-      return "Data Structures & Algorithms";
-    case "oop":
-      return "Object-Oriented Programming";
-    default:
-      return category;
-  }
-};
-
-// Function to extract examples from description text
 const extractExamplesFromText = (
   description: string
 ): Array<{
@@ -120,7 +101,11 @@ const extractExamplesFromText = (
 
   // Split the description into lines
   const lines = description.split("\n");
-  let currentExample: any = null;
+  let currentExample: {
+    input?: string;
+    output?: string;
+    explanation?: string;
+  } | null = null;
   let inExampleSection = false;
 
   for (let i = 0; i < lines.length; i++) {
@@ -135,7 +120,11 @@ const extractExamplesFromText = (
     // Check if we're starting a new example
     if (inExampleSection && line.toLowerCase().includes("example")) {
       if (currentExample && currentExample.input && currentExample.output) {
-        examples.push(currentExample);
+        examples.push({
+          input: currentExample.input,
+          output: currentExample.output,
+          explanation: currentExample.explanation
+        });
       }
       currentExample = {};
       continue;
@@ -182,10 +171,14 @@ const extractExamplesFromText = (
     }
   }
 
-  // Add the last example if it exists
-  if (currentExample && currentExample.input && currentExample.output) {
-    examples.push(currentExample);
-  }
+      // Add the last example if it exists
+    if (currentExample && currentExample.input && currentExample.output) {
+      examples.push({
+        input: currentExample.input,
+        output: currentExample.output,
+        explanation: currentExample.explanation
+      });
+    }
 
   console.log("🔍 Extracted examples from text:", examples);
   return examples;
@@ -206,15 +199,27 @@ const transformApiChallenge = (apiChallenge: ApiChallenge): Question => {
 
   // Handle description and examples
   let finalDescription = "";
-  let finalExamples = [];
-  let finalConstraints = [];
+  let finalExamples: Array<{
+    input: string;
+    output: string;
+    explanation?: string;
+  }> = [];
+  let finalConstraints: string[] = [];
 
   // Handle nested description structure
   if (
     apiChallenge.description &&
     typeof apiChallenge.description === "object"
   ) {
-    const descObj = apiChallenge.description as any;
+    const descObj = apiChallenge.description as { 
+      problemStatement: string; 
+      examples?: Array<{
+        input: string;
+        output: string;
+        explanation?: string;
+      }>;
+      constraints?: string[];
+    };
     finalDescription = descObj.problemStatement || JSON.stringify(descObj);
     if (descObj.examples && Array.isArray(descObj.examples)) {
       finalExamples = descObj.examples;

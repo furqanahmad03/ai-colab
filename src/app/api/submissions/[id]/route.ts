@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Submission } from "@prisma/client";
 import OpenAI from "openai";
 import { promptData } from "@/lib/prompts";
 
@@ -26,7 +26,7 @@ interface AIEvaluationResponse {
 
 async function evaluateSubmission(
   submissionId: string
-): Promise<{ evaluation: AIEvaluationResponse; submission: any }> {
+): Promise<{ evaluation: AIEvaluationResponse; submission: Submission }> {
   try {
     console.log("🤖 Starting AI evaluation for submission:", submissionId);
 
@@ -56,7 +56,7 @@ async function evaluateSubmission(
       descriptionText = description;
     } else if (typeof description === "object" && description !== null) {
       // If it's a JSON object, extract the problem statement
-      const descObj = description as any;
+      const descObj = description as { problemStatement: string };
       descriptionText = descObj.problemStatement || JSON.stringify(description);
     } else {
       descriptionText = String(description);
