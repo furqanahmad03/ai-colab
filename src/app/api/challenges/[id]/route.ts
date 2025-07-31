@@ -84,3 +84,54 @@ export async function GET(
     );
   }
 } 
+
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
+    const challenge = await prisma.challenge.findUnique({
+      where: { id },
+    });
+
+    if (!challenge) {
+      return NextResponse.json({ error: 'Challenge not found' }, { status: 404 });
+    }
+    
+    if (challenge.createdById !== userId) {
+      return NextResponse.json(
+        { error: 'Access denied - You don\'t have permission to delete this challenge' },
+        { status: 403 }
+      );
+    }
+    
+    // Delete submissions first to avoid foreign key constraint issues
+    await prisma.submission.deleteMany({
+      where: {
+        challengeId: id,
+      },
+    });
+
+    // Then delete the challenge
+    await prisma.challenge.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: 'Challenge deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting challenge:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
